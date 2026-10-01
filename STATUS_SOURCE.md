@@ -17,7 +17,8 @@ Source changes go through the `Status Generator` check on a pull request.
 CI builds on Linux with the Node version declared in `action.yml`, exercises the
 native curl binding and packaged dispatch entry point, and compares all emitted
 files with committed `dist/`. When packaging changes, download the Linux package
-artifact, commit those outputs, and run CI again. Do not ship a Mac native binary.
+artifact, extract its tar archive to preserve file modes, commit those outputs,
+and run CI again. Do not ship a Mac native binary.
 The dispatch smoke uses public fixtures and makes no real workflow request.
 
 After the protected source PR merges, use its **master merge SHA** to regenerate
