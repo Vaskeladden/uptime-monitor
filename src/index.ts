@@ -1,4 +1,5 @@
 import { debug, getInput, setFailed } from "@actions/core";
+import { dispatchGraphs } from "./dispatch-graphs";
 import { updateDependencies } from "./dependencies";
 import { generateGraphs } from "./graphs";
 import { getSecret, hydrateSecretsEnvironment } from "./helpers/secrets";
@@ -25,6 +26,8 @@ GitHub-powered open-source uptime monitor and status page by Anand Chowdhary
 `);
 
   switch (getInput("command")) {
+    case "dispatch-graphs":
+      return dispatchGraphs(token);
     case "summary":
       debug("Starting summary");
     case "readme":
