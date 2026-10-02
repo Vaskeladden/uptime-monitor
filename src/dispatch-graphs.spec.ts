@@ -22,6 +22,8 @@ describe("tracked graph dispatcher", () => {
     jest.clearAllMocks();
     process.env = {
       ...originalEnvironment,
+      // Model a supported Setup event, independent of the test runner's PR event.
+      GITHUB_EVENT_NAME: "repository_dispatch",
       GITHUB_REPOSITORY: "Vaskeladden/status",
       GITHUB_SHA: "b".repeat(40),
       GITHUB_REF_NAME: "main",
