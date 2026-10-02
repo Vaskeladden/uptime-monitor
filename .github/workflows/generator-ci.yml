@@ -1,0 +1,43 @@
+name: Status Generator CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Status Generator
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: npm test -- --runInBand
+      - run: npm run package
+      - name: Exercise the packaged native curl binding
+        run: node tooling/smoke-packaged-curl.cjs
+      - name: Exercise the packaged dispatcher without network calls
+        run: node tooling/smoke-packaged-dispatch.cjs
+      - name: Preserve package file modes in the artifact
+        run: tar -cf "$RUNNER_TEMP/status-generator-linux-package.tar" dist/
+      - name: Save the Linux package for the source PR
+        uses: actions/upload-artifact@v4
+        with:
+          name: status-generator-linux-package
+          path: ${{ runner.temp }}/status-generator-linux-package.tar
+          if-no-files-found: error
+          retention-days: 7
+      - name: Require the reviewed package to match its source
+        run: |
+          test -z "$(git status --porcelain --ignored --untracked-files=all -- dist/)"

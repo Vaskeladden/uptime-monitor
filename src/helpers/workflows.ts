@@ -10,7 +10,6 @@ import {
   UPDATES_CI_SCHEDULE,
   UPTIME_CI_SCHEDULE,
 } from "./constants";
-import { getOctokit } from "./github";
 import {
   generatedWorkflowToken,
   githubAppTokenJobEnvironment,
@@ -18,39 +17,14 @@ import {
 } from "./secrets";
 import { getWorkflowSecretNames, renderSecretsContext } from "./workflow-secrets";
 
-let release: string | undefined = undefined;
-export const getUptimeMonitorVersion = async () => {
-  if (release) return release;
-  const octokit = await getOctokit();
-  let latestRelease: string | undefined;
-  try {
-    const releases = await octokit.repos.listReleases({
-      owner: "upptime",
-      repo: "uptime-monitor",
-      per_page: 1,
-    });
-    latestRelease = releases.data[0]?.tag_name;
-  } catch {
-    latestRelease = undefined;
+// The caller supplies the reviewed action SHA. Regeneration preserves that exact
+// source instead of adopting an upstream release or a mutable branch implicitly.
+export const getUptimeMonitorVersion = async (): Promise<string> => {
+  const ref = process.env.UPTIME_MONITOR_REF;
+  if (!ref || !/^[a-f0-9]{40}$/.test(ref)) {
+    throw new Error("UPTIME_MONITOR_REF must name an immutable 40-character action SHA");
   }
-
-  if (latestRelease) {
-    release = latestRelease;
-    return release;
-  }
-
-  const tags = await octokit.repos.listTags({
-    owner: "upptime",
-    repo: "uptime-monitor",
-    per_page: 1,
-  });
-  const latestTag = tags.data[0]?.name;
-  if (!latestTag) {
-    throw new Error("Unable to find a release or tag for upptime/uptime-monitor");
-  }
-
-  release = latestTag;
-  return release;
+  return ref;
 };
 
 const introComment = async () => `#
@@ -71,7 +45,8 @@ const introComment = async () => `#
 
 const concurrencyBlock = `concurrency:
   group: \${{ github.repository }}-\${{ github.head_ref || github.ref_name }}-upptime
-  cancel-in-progress: false`;
+  cancel-in-progress: false
+  queue: max`;
 
 export const graphsCiWorkflow = async () => {
   const config = await getConfig();
@@ -92,6 +67,7 @@ jobs:
     name: Generate graphs
     runs-on: ${config.runner || DEFAULT_RUNNER}
 ${githubAppTokenJobEnvironment}
+      UPTIME_MONITOR_REF: "${await getUptimeMonitorVersion()}"
     steps:
 ${githubAppTokenSteps}
       - name: Checkout
@@ -104,7 +80,7 @@ ${githubAppTokenSteps}
         with:
           node-version: "20"
       - name: Generate graphs
-        uses: upptime/uptime-monitor@${await getUptimeMonitorVersion()}
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "graphs"
         env:
@@ -140,6 +116,7 @@ jobs:
     name: Check status
     runs-on: ${config.runner || DEFAULT_RUNNER}
 ${githubAppTokenJobEnvironment}
+      UPTIME_MONITOR_REF: "${await getUptimeMonitorVersion()}"
     steps:
 ${githubAppTokenSteps}
       - name: Checkout
@@ -148,7 +125,7 @@ ${githubAppTokenSteps}
           ref: \${{ github.head_ref || github.ref_name }}
           token: ${generatedWorkflowToken}
       - name: Update response time
-        uses: upptime/uptime-monitor@${await getUptimeMonitorVersion()}
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "response-time"
         env:
@@ -179,6 +156,7 @@ jobs:
     name: Setup Upptime
     runs-on: ${config.runner || DEFAULT_RUNNER}
 ${githubAppTokenJobEnvironment}
+      UPTIME_MONITOR_REF: "${await getUptimeMonitorVersion()}"
     steps:
 ${githubAppTokenSteps}
       - name: Checkout
@@ -187,13 +165,13 @@ ${githubAppTokenSteps}
           ref: \${{ github.head_ref || github.ref_name }}
           token: ${generatedWorkflowToken}
       - name: Update template
-        uses: upptime/uptime-monitor@${await getUptimeMonitorVersion()}
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "update-template"
         env:
           GH_PAT: ${generatedWorkflowToken}
       - name: Update response time
-        uses: upptime/uptime-monitor@${await getUptimeMonitorVersion()}
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "response-time"
         env:
@@ -201,18 +179,20 @@ ${githubAppTokenSteps}
           # Configure the secret allowlist in .upptimerc.yml; do not edit this workflow directly.
           SECRETS_CONTEXT: ${renderSecretsContext(getWorkflowSecretNames(config))}
       - name: Update summary in README
-        uses: upptime/uptime-monitor@${await getUptimeMonitorVersion()}
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "readme"
         env:
           GH_PAT: ${generatedWorkflowToken}
       - name: Generate graphs
         id: dispatch_graphs
-        uses: benc-uk/workflow-dispatch@v1
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         continue-on-error: true
         with:
-          workflow: Graphs CI
-          token: ${generatedWorkflowToken}
+          command: "dispatch-graphs"
+        env:
+          GH_PAT: ${generatedWorkflowToken}
+          DISPATCH_JOB_CONTEXT: \${{ toJSON(job) }}
       - name: Setup Node.js for direct graph generation
         if: steps.dispatch_graphs.outcome == 'failure'
         uses: actions/setup-node@v6
@@ -220,13 +200,13 @@ ${githubAppTokenSteps}
           node-version: "20"
       - name: Generate graphs directly if dispatch fails
         if: steps.dispatch_graphs.outcome == 'failure'
-        uses: upptime/uptime-monitor@${await getUptimeMonitorVersion()}
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "graphs"
         env:
           GH_PAT: ${generatedWorkflowToken}
       - name: Generate site
-        uses: upptime/uptime-monitor@${await getUptimeMonitorVersion()}
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "site"
         env:
@@ -269,6 +249,7 @@ jobs:
     runs-on: ${config.runner || DEFAULT_RUNNER}
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
 ${githubAppTokenJobEnvironment}
+      UPTIME_MONITOR_REF: "${await getUptimeMonitorVersion()}"
     steps:
 ${githubAppTokenSteps}
       - name: Checkout
@@ -277,7 +258,7 @@ ${githubAppTokenSteps}
           ref: \${{ github.head_ref || github.ref_name }}
           token: ${generatedWorkflowToken}
       - name: Generate site
-        uses: upptime/uptime-monitor@${await getUptimeMonitorVersion()}
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "site"
         env:
@@ -314,6 +295,7 @@ jobs:
     name: Generate README
     runs-on: ${config.runner || DEFAULT_RUNNER}
 ${githubAppTokenJobEnvironment}
+      UPTIME_MONITOR_REF: "${await getUptimeMonitorVersion()}"
     steps:
 ${githubAppTokenSteps}
       - name: Checkout
@@ -322,7 +304,7 @@ ${githubAppTokenSteps}
           ref: \${{ github.head_ref || github.ref_name }}
           token: ${generatedWorkflowToken}
       - name: Update summary in README
-        uses: upptime/uptime-monitor@${await getUptimeMonitorVersion()}
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "readme"
         env:
@@ -349,6 +331,7 @@ jobs:
     name: Build
     runs-on: ${config.runner || DEFAULT_RUNNER}
 ${githubAppTokenJobEnvironment}
+      UPTIME_MONITOR_REF: "${await getUptimeMonitorVersion()}"
     steps:
 ${githubAppTokenSteps}
       - name: Checkout
@@ -357,7 +340,7 @@ ${githubAppTokenSteps}
           ref: \${{ github.head_ref || github.ref_name }}
           token: ${generatedWorkflowToken}
       - name: Update template
-        uses: upptime/uptime-monitor@master
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "update-template"
         env:
@@ -384,6 +367,7 @@ jobs:
     name: Deploy updates
     runs-on: ${config.runner || DEFAULT_RUNNER}
 ${githubAppTokenJobEnvironment}
+      UPTIME_MONITOR_REF: "${await getUptimeMonitorVersion()}"
     steps:
 ${githubAppTokenSteps}
       - name: Checkout
@@ -392,7 +376,7 @@ ${githubAppTokenSteps}
           ref: \${{ github.head_ref || github.ref_name }}
           token: ${generatedWorkflowToken}
       - name: Update code
-        uses: upptime/updates@master
+        uses: upptime/updates@e630cfe3652fd1811f3f37a9036efa4cf1acfa0a
         env:
           GH_PAT: ${generatedWorkflowToken}
 `;
@@ -417,6 +401,7 @@ jobs:
     name: Check status
     runs-on: ${config.runner || DEFAULT_RUNNER}
 ${githubAppTokenJobEnvironment}
+      UPTIME_MONITOR_REF: "${await getUptimeMonitorVersion()}"
     steps:
 ${githubAppTokenSteps}
       - name: Checkout
@@ -425,7 +410,7 @@ ${githubAppTokenSteps}
           ref: \${{ github.head_ref || github.ref_name }}
           token: ${generatedWorkflowToken}
       - name: Check endpoint status
-        uses: upptime/uptime-monitor@${await getUptimeMonitorVersion()}
+        uses: Vaskeladden/uptime-monitor@${await getUptimeMonitorVersion()}
         with:
           command: "update"
         env:

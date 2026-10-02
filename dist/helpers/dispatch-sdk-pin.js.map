@@ -1,0 +1,1 @@
+{"version":3,"file":"dispatch-sdk-pin.js","sourceRoot":"","sources":["../../src/helpers/dispatch-sdk-pin.ts"],"names":[],"mappings":";;;AAAA,gFAAgF;AACnE,QAAA,YAAY,GAAG,0CAA0C,CAAC;AAC1D,QAAA,SAAS,GAA2B;IAC/C,cAAc,EAAE,kEAAkE;IAClF,mBAAmB,EAAE,kEAAkE;IACvF,cAAc,EAAE,kEAAkE;IAClF,yBAAyB,EAAE,kEAAkE;CAC9F,CAAC"}
