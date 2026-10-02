@@ -18,39 +18,8 @@ const loadWorkflowHelpers = () => {
     return { getConfig, getOctokit, ...workflows };
 };
 describe("workflow helpers", () => {
-    it("falls back to tags when uptime-monitor has no GitHub releases", async () => {
-        const { getOctokit, getUptimeMonitorVersion } = loadWorkflowHelpers();
-        const listReleases = jest.fn().mockResolvedValue({ data: [] });
-        const listTags = jest.fn().mockResolvedValue({ data: [{ name: "v1.41.2" }] });
-        getOctokit.mockResolvedValue({
-            repos: { listReleases, listTags },
-        });
-        await expect(getUptimeMonitorVersion()).resolves.toBe("v1.41.2");
-        expect(listReleases).toHaveBeenCalledWith({
-            owner: "upptime",
-            repo: "uptime-monitor",
-            per_page: 1,
-        });
-        expect(listTags).toHaveBeenCalledWith({
-            owner: "upptime",
-            repo: "uptime-monitor",
-            per_page: 1,
-        });
-    });
-    it("falls back to tags when listing GitHub releases fails", async () => {
-        const { getOctokit, getUptimeMonitorVersion } = loadWorkflowHelpers();
-        const listReleases = jest.fn().mockRejectedValue(new Error("rate limited"));
-        const listTags = jest.fn().mockResolvedValue({ data: [{ name: "v1.41.3" }] });
-        getOctokit.mockResolvedValue({
-            repos: { listReleases, listTags },
-        });
-        await expect(getUptimeMonitorVersion()).resolves.toBe("v1.41.3");
-        expect(listTags).toHaveBeenCalledWith({
-            owner: "upptime",
-            repo: "uptime-monitor",
-            per_page: 1,
-        });
-    });
+    beforeEach(() => { process.env.UPTIME_MONITOR_REF = "0123456789abcdef0123456789abcdef01234567"; });
+    afterEach(() => { delete process.env.UPTIME_MONITOR_REF; });
     it("generates workflows with the Node 24-compatible checkout action", async () => {
         const { getConfig, getOctokit, graphsCiWorkflow, responseTimeCiWorkflow, setupCiWorkflow, siteCiWorkflow, summaryCiWorkflow, updateTemplateCiWorkflow, updatesCiWorkflow, uptimeCiWorkflow, } = loadWorkflowHelpers();
         const listReleases = jest.fn().mockResolvedValue({ data: [{ tag_name: "v1.41.4" }] });
@@ -169,7 +138,7 @@ describe("workflow helpers", () => {
             }),
             expect.objectContaining({
                 name: "Generate graphs",
-                uses: "upptime/uptime-monitor@v1.41.9",
+                uses: "Vaskeladden/uptime-monitor@0123456789abcdef0123456789abcdef01234567",
                 with: { command: "graphs" },
             }),
         ]));
@@ -195,11 +164,11 @@ describe("workflow helpers", () => {
         const fallbackStep = steps.find((step) => step.name === "Generate graphs directly if dispatch fails");
         expect(dispatchStep).toMatchObject({
             name: "Generate graphs",
-            uses: "benc-uk/workflow-dispatch@v1",
+            uses: "Vaskeladden/uptime-monitor@0123456789abcdef0123456789abcdef01234567",
             "continue-on-error": true,
-            with: {
-                workflow: "Graphs CI",
-                token: "${{ steps.app_token.outputs.token || secrets.GH_PAT || github.token }}",
+            with: { command: "dispatch-graphs" },
+            env: {
+                GH_PAT: "${{ steps.app_token.outputs.token || secrets.GH_PAT || github.token }}",
             },
         });
         expect(setupNodeStep).toMatchObject({
@@ -211,7 +180,7 @@ describe("workflow helpers", () => {
         });
         expect(fallbackStep).toMatchObject({
             if: "steps.dispatch_graphs.outcome == 'failure'",
-            uses: "upptime/uptime-monitor@v1.41.9",
+            uses: "Vaskeladden/uptime-monitor@0123456789abcdef0123456789abcdef01234567",
             with: {
                 command: "graphs",
             },
