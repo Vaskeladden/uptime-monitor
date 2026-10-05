@@ -2073,6 +2073,31 @@ const uptimeCiWorkflow = async () => {
     const workflowSchedule = config.workflowSchedule || {};
     return `${await introComment()}
 
+env:
+  AUTOMATION_CONTRACT: >-
+    {
+      "id": "gha.status.uptime-probe",
+      "title": "Check whether public services respond",
+      "description": "Checks whether our public services respond and records any downtime.",
+      "owner": "platform",
+      "criticality": "critical",
+      "max_lateness_hours": 2.0,
+      "repair_policy": "human-only",
+      "legs": [
+        {
+          "id": "gha-status-uptime-yml",
+          "required_proof": "run",
+          "adapter": "github-actions-run",
+          "expected_state": "active",
+          "repair_policy": "human-only"
+        }
+      ],
+      "architecture": {
+        "recipe": "github-workflow",
+        "disposition": "exception",
+        "note": "Upptime in Vaskeladden/status is the outside-GCP probe and public status page; its value is independence from GCP, so it stays on GitHub (owner platform). GitHub may delay its 5-minute cron, so alerting must not rely on it alone: Terraform Cloud Monitoring uptime checks with content matching are planned for the critical customer-facing paths."
+      }
+    }
 name: Uptime CI
 on:
   schedule:
