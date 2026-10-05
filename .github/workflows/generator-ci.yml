@@ -1,3 +1,29 @@
+env:
+  AUTOMATION_CONTRACT: >-
+    {
+      "id": "gha.uptime-monitor.generator-ci",
+      "title": "Verify the public status workflow generator",
+      "description": "Builds and tests the maintained status generator and verifies its packaged output before release.",
+      "owner": "platform",
+      "criticality": "medium",
+      "max_lateness_hours": 24,
+      "repair_policy": "human-only",
+      "architecture": {
+        "recipe": "github-workflow",
+        "disposition": "fits",
+        "note": "Repository CI verifies generator source and its committed package on pull requests and master pushes; it owns no production schedule."
+      },
+      "legs": [
+        {
+          "id": "gha-uptime-monitor-generator-ci-yml",
+          "required_proof": "run",
+          "adapter": "github-actions-run",
+          "expected_state": "active",
+          "repair_policy": "human-only"
+        }
+      ]
+    }
+
 name: Status Generator CI
 
 on:
@@ -7,6 +33,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   verify:
@@ -17,6 +44,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: Enforce automation owners and tracked dispatch
+        uses: Vaskeladden/automation-actions/.github/actions/check-github-dispatches@main
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
