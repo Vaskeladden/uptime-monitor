@@ -33,7 +33,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   verify:
@@ -44,8 +43,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Enforce automation owners and tracked dispatch
-        uses: Vaskeladden/automation-actions/.github/actions/check-github-dispatches@main
       - uses: actions/setup-node@v4
         with:
           node-version: "24"

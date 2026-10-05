@@ -36,6 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
 const js_yaml_1 = __importDefault(require("js-yaml"));
 jest.mock("./config", () => ({
     getConfig: jest.fn().mockResolvedValue({
@@ -57,6 +59,26 @@ describe("owned Status workflow generation", () => {
         process.env.UPTIME_MONITOR_REF = ref;
     });
     afterEach(() => { delete process.env.UPTIME_MONITOR_REF; });
+    it("admits only the declared generator workflow", () => {
+        const directory = path_1.default.resolve(__dirname, "../../.github/workflows");
+        expect(fs_1.default.readdirSync(directory).filter(name => /\.ya?ml$/.test(name)).sort())
+            .toEqual(["generator-ci.yml"]);
+        const workflow = js_yaml_1.default.load(fs_1.default.readFileSync(path_1.default.join(directory, "generator-ci.yml"), "utf8"));
+        expect(JSON.parse(workflow.env.AUTOMATION_CONTRACT)).toMatchObject({
+            id: "gha.uptime-monitor.generator-ci", owner: "platform",
+            architecture: { recipe: "github-workflow", disposition: "fits" },
+            legs: [{ id: "gha-uptime-monitor-generator-ci-yml", required_proof: "run", adapter: "github-actions-run" }],
+        });
+    });
+    it("emits the uptime declaration beside the workflow it owns", async () => {
+        const { uptimeCiWorkflow } = await Promise.resolve().then(() => __importStar(require("./workflows")));
+        const workflow = js_yaml_1.default.load(await uptimeCiWorkflow());
+        expect(JSON.parse(workflow.env.AUTOMATION_CONTRACT)).toMatchObject({
+            id: "gha.status.uptime-probe", owner: "platform",
+            architecture: { recipe: "github-workflow", disposition: "exception" },
+            legs: [{ id: "gha-status-uptime-yml", required_proof: "run", adapter: "github-actions-run" }],
+        });
+    });
     it("keeps tracked dispatch failure connected to both direct graph fallback steps", async () => {
         const { setupCiWorkflow } = await Promise.resolve().then(() => __importStar(require("./workflows")));
         const workflow = js_yaml_1.default.load(await setupCiWorkflow());

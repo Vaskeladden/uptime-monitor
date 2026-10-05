@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import yaml from "js-yaml";
 
 jest.mock("./config", () => ({
@@ -22,6 +24,7 @@ interface WorkflowStep {
   env?: Record<string, string>;
 }
 interface GeneratedWorkflow {
+  env?: { AUTOMATION_CONTRACT: string };
   jobs: { release: { steps: WorkflowStep[]; env: Record<string, string> } };
   concurrency: Record<string, string | boolean>;
 }
@@ -35,6 +38,28 @@ describe("owned Status workflow generation", () => {
   });
 
   afterEach(() => { delete process.env.UPTIME_MONITOR_REF; });
+
+  it("admits only the declared generator workflow", () => {
+    const directory = path.resolve(__dirname, "../../.github/workflows");
+    expect(fs.readdirSync(directory).filter(name => /\.ya?ml$/.test(name)).sort())
+      .toEqual(["generator-ci.yml"]);
+    const workflow = yaml.load(fs.readFileSync(path.join(directory, "generator-ci.yml"), "utf8")) as GeneratedWorkflow;
+    expect(JSON.parse(workflow.env!.AUTOMATION_CONTRACT)).toMatchObject({
+      id: "gha.uptime-monitor.generator-ci", owner: "platform",
+      architecture: { recipe: "github-workflow", disposition: "fits" },
+      legs: [{ id: "gha-uptime-monitor-generator-ci-yml", required_proof: "run", adapter: "github-actions-run" }],
+    });
+  });
+
+  it("emits the uptime declaration beside the workflow it owns", async () => {
+    const { uptimeCiWorkflow } = await import("./workflows");
+    const workflow = yaml.load(await uptimeCiWorkflow()) as GeneratedWorkflow;
+    expect(JSON.parse(workflow.env!.AUTOMATION_CONTRACT)).toMatchObject({
+      id: "gha.status.uptime-probe", owner: "platform",
+      architecture: { recipe: "github-workflow", disposition: "exception" },
+      legs: [{ id: "gha-status-uptime-yml", required_proof: "run", adapter: "github-actions-run" }],
+    });
+  });
 
   it("keeps tracked dispatch failure connected to both direct graph fallback steps", async () => {
     const { setupCiWorkflow } = await import("./workflows");
