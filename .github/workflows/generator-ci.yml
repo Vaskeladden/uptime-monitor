@@ -18,6 +18,7 @@ env:
           "id": "gha-uptime-monitor-generator-ci-yml",
           "required_proof": "run",
           "adapter": "github-actions-run",
+          "freshness_mode": "event-execution",
           "expected_state": "active",
           "repair_policy": "human-only"
         }
