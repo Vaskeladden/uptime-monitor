@@ -1,4 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "forkProcessing": "enabled"
+  "description": [
+    "npm 12 refuses registry tarballs it must open to read bundled dependencies (npm/cli#9800), so Renovate's lockfile regeneration fails with EALLOWREMOTE on the npm package that @semantic-release/npm pulls in. allow-remote=all applies only to Renovate's --ignore-scripts lockfile runs. Remove npmrc and npmrcMerge once Mend's npm includes the npm/cli#9819 fix."
+  ],
+  "forkProcessing": "enabled",
+  "npmrc": "allow-remote=all",
+  "npmrcMerge": true
 }
