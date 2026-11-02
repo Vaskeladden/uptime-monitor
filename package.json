@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@actions/core": "^1.2.7",
-    "@actions/github": "^5.1.1",
+    "@actions/github": "^9.0.0",
     "@koj/config": "^1.2.11",
     "@octokit/rest": "^18.5.2",
     "@sindresorhus/slugify": "^1.1.0",
