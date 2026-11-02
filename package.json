@@ -45,7 +45,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@actions/core": "^1.2.7",
+    "@actions/core": "^3.0.0",
     "@actions/github": "^9.0.0",
     "@koj/config": "^1.2.11",
     "@octokit/rest": "^18.5.2",
