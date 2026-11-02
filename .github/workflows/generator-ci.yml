@@ -59,7 +59,7 @@ jobs:
       - name: Preserve package file modes in the artifact
         run: tar -cf "$RUNNER_TEMP/status-generator-linux-package.tar" dist/
       - name: Save the Linux package for the source PR
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: status-generator-linux-package
           path: ${{ runner.temp }}/status-generator-linux-package.tar
