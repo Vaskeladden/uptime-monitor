@@ -33,7 +33,7 @@
     "@types/js-yaml": "^4.0.0",
     "@types/nodemailer": "^6.4.1",
     "@types/prettier": "^2.2.3",
-    "@types/shelljs": "^0.8.8",
+    "@types/shelljs": "^0.10.0",
     "@types/tcp-ping": "^0.1.1",
     "@types/ws": "^7.4.6",
     "@vercel/ncc": "^0.36.0",
@@ -59,7 +59,7 @@
     "nodemailer": "^6.5.0",
     "notifme-sdk": "^1.10.0",
     "prettier": "^2.2.1",
-    "shelljs": "^0.8.4",
+    "shelljs": "^0.10.0",
     "tcp-ping": "^0.1.1",
     "ws": "^7.4.6"
   }
