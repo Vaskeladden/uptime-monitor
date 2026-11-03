@@ -384736,37 +384736,832 @@ exports.getPackageJSON = getPackageJSON;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 
-var A=async(t,r)=>{let e=typeof r=="function"?await r(t):r;if(e)return t.scheme==="bearer"?`Bearer ${e}`:t.scheme==="basic"?`Basic ${btoa(e)}`:e},R={bodySerializer:t=>JSON.stringify(t,(r,e)=>typeof e=="bigint"?e.toString():e)},U=t=>{switch(t){case "label":return ".";case "matrix":return ";";case "simple":return ",";default:return "&"}},_=t=>{switch(t){case "form":return ",";case "pipeDelimited":return "|";case "spaceDelimited":return "%20";default:return ","}},D=t=>{switch(t){case "label":return ".";case "matrix":return ";";case "simple":return ",";default:return "&"}},O=({allowReserved:t,explode:r,name:e,style:a,value:i})=>{if(!r){let s=(t?i:i.map(l=>encodeURIComponent(l))).join(_(a));switch(a){case "label":return `.${s}`;case "matrix":return `;${e}=${s}`;case "simple":return s;default:return `${e}=${s}`}}let o=U(a),n=i.map(s=>a==="label"||a==="simple"?t?s:encodeURIComponent(s):y({allowReserved:t,name:e,value:s})).join(o);return a==="label"||a==="matrix"?o+n:n},y=({allowReserved:t,name:r,value:e})=>{if(e==null)return "";if(typeof e=="object")throw new Error("Deeply-nested arrays/objects aren\u2019t supported. Provide your own `querySerializer()` to handle these.");return `${r}=${t?e:encodeURIComponent(e)}`},q=({allowReserved:t,explode:r,name:e,style:a,value:i})=>{if(i instanceof Date)return `${e}=${i.toISOString()}`;if(a!=="deepObject"&&!r){let s=[];Object.entries(i).forEach(([f,u])=>{s=[...s,f,t?u:encodeURIComponent(u)];});let l=s.join(",");switch(a){case "form":return `${e}=${l}`;case "label":return `.${l}`;case "matrix":return `;${e}=${l}`;default:return l}}let o=D(a),n=Object.entries(i).map(([s,l])=>y({allowReserved:t,name:a==="deepObject"?`${e}[${s}]`:s,value:l})).join(o);return a==="label"||a==="matrix"?o+n:n};var H=/\{[^{}]+\}/g,B=({path:t,url:r})=>{let e=r,a=r.match(H);if(a)for(let i of a){let o=false,n=i.substring(1,i.length-1),s="simple";n.endsWith("*")&&(o=true,n=n.substring(0,n.length-1)),n.startsWith(".")?(n=n.substring(1),s="label"):n.startsWith(";")&&(n=n.substring(1),s="matrix");let l=t[n];if(l==null)continue;if(Array.isArray(l)){e=e.replace(i,O({explode:o,name:n,style:s,value:l}));continue}if(typeof l=="object"){e=e.replace(i,q({explode:o,name:n,style:s,value:l}));continue}if(s==="matrix"){e=e.replace(i,`;${y({name:n,value:l})}`);continue}let f=encodeURIComponent(s==="label"?`.${l}`:l);e=e.replace(i,f);}return e},E=({allowReserved:t,array:r,object:e}={})=>i=>{let o=[];if(i&&typeof i=="object")for(let n in i){let s=i[n];if(s!=null){if(Array.isArray(s)){o=[...o,O({allowReserved:t,explode:true,name:n,style:"form",value:s,...r})];continue}if(typeof s=="object"){o=[...o,q({allowReserved:t,explode:true,name:n,style:"deepObject",value:s,...e})];continue}o=[...o,y({allowReserved:t,name:n,value:s})];}}return o.join("&")},P=t=>{if(!t)return "stream";let r=t.split(";")[0]?.trim();if(r){if(r.startsWith("application/json")||r.endsWith("+json"))return "json";if(r==="multipart/form-data")return "formData";if(["application/","audio/","image/","video/"].some(e=>r.startsWith(e)))return "blob";if(r.startsWith("text/"))return "text"}},I=async({security:t,...r})=>{for(let e of t){let a=await A(e,r.auth);if(!a)continue;let i=e.name??"Authorization";switch(e.in){case "query":r.query||(r.query={}),r.query[i]=a;break;case "cookie":r.headers.append("Cookie",`${i}=${a}`);break;case "header":default:r.headers.set(i,a);break}return}},S=t=>W({baseUrl:t.baseUrl,path:t.path,query:t.query,querySerializer:typeof t.querySerializer=="function"?t.querySerializer:E(t.querySerializer),url:t.url}),W=({baseUrl:t,path:r,query:e,querySerializer:a,url:i})=>{let o=i.startsWith("/")?i:`/${i}`,n=(t??"")+o;r&&(n=B({path:r,url:n}));let s=e?a(e):"";return s.startsWith("?")&&(s=s.substring(1)),s&&(n+=`?${s}`),n},C=(t,r)=>{let e={...t,...r};return e.baseUrl?.endsWith("/")&&(e.baseUrl=e.baseUrl.substring(0,e.baseUrl.length-1)),e.headers=x(t.headers,r.headers),e},x=(...t)=>{let r=new Headers;for(let e of t){if(!e||typeof e!="object")continue;let a=e instanceof Headers?e.entries():Object.entries(e);for(let[i,o]of a)if(o===null)r.delete(i);else if(Array.isArray(o))for(let n of o)r.append(i,n);else o!==undefined&&r.set(i,typeof o=="object"?JSON.stringify(o):o);}return r},h=class{_fns;constructor(){this._fns=[];}clear(){this._fns=[];}exists(r){return this._fns.indexOf(r)!==-1}eject(r){let e=this._fns.indexOf(r);e!==-1&&(this._fns=[...this._fns.slice(0,e),...this._fns.slice(e+1)]);}use(r){this._fns=[...this._fns,r];}},T=()=>({error:new h,request:new h,response:new h}),N=E({allowReserved:false,array:{explode:true,style:"form"},object:{explode:true,style:"deepObject"}}),Q={"Content-Type":"application/json"},w=(t={})=>({...R,headers:Q,parseAs:"auto",querySerializer:N,...t});var J=(t={})=>{let r=C(w(),t),e=()=>({...r}),a=n=>(r=C(r,n),e()),i=T(),o=async n=>{let s={...r,...n,fetch:n.fetch??r.fetch??globalThis.fetch,headers:x(r.headers,n.headers)};s.security&&await I({...s,security:s.security}),s.body&&s.bodySerializer&&(s.body=s.bodySerializer(s.body)),(s.body===undefined||s.body==="")&&s.headers.delete("Content-Type");let l=S(s),f={redirect:"follow",...s},u=new Request(l,f);for(let p of i.request._fns)u=await p(u,s);let k=s.fetch,c=await k(u);for(let p of i.response._fns)c=await p(c,u,s);let m={request:u,response:c};if(c.ok){if(c.status===204||c.headers.get("Content-Length")==="0")return {data:{},...m};let p=(s.parseAs==="auto"?P(c.headers.get("Content-Type")):s.parseAs)??"json";if(p==="stream")return {data:c.body,...m};let b=await c[p]();return p==="json"&&(s.responseValidator&&await s.responseValidator(b),s.responseTransformer&&(b=await s.responseTransformer(b))),{data:b,...m}}let g=await c.text();try{g=JSON.parse(g);}catch{}let d=g;for(let p of i.error._fns)d=await p(g,c,u,s);if(d=d||{},s.throwOnError)throw d;return {error:d,...m}};return {buildUrl:S,connect:n=>o({...n,method:"CONNECT"}),delete:n=>o({...n,method:"DELETE"}),get:n=>o({...n,method:"GET"}),getConfig:e,head:n=>o({...n,method:"HEAD"}),interceptors:i,options:n=>o({...n,method:"OPTIONS"}),patch:n=>o({...n,method:"PATCH"}),post:n=>o({...n,method:"POST"}),put:n=>o({...n,method:"PUT"}),request:o,setConfig:a,trace:n=>o({...n,method:"TRACE"})}};
+// This file is auto-generated by @hey-api/openapi-ts
+// @ts-nocheck
+const jsonBodySerializer = {
+    bodySerializer: (body) => JSON.stringify(body, (_key, value) => (typeof value === 'bigint' ? value.toString() : value)),
+};
 
-var version = "0.1.1";
+// This file is auto-generated by @hey-api/openapi-ts
+// @ts-nocheck
+function createSseClient({ onRequest, onSseError, onSseEvent, responseTransformer, responseValidator, sseDefaultRetryDelay, sseMaxRetryAttempts, sseMaxRetryDelay, sseSleepFn, url, ...options }) {
+    let lastEventId;
+    const sleep = sseSleepFn ?? ((ms) => new Promise(resolve => setTimeout(resolve, ms)));
+    const createStream = async function* () {
+        let retryDelay = sseDefaultRetryDelay ?? 3000;
+        let attempt = 0;
+        const signal = options.signal ?? new AbortController().signal;
+        while (true) {
+            if (signal.aborted) {
+                break;
+            }
+            attempt++;
+            const headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers);
+            if (lastEventId !== undefined) {
+                headers.set('Last-Event-ID', lastEventId);
+            }
+            try {
+                const requestInit = {
+                    redirect: 'follow',
+                    ...options,
+                    body: options.serializedBody,
+                    headers,
+                    signal,
+                };
+                let request = new Request(url, requestInit);
+                if (onRequest) {
+                    request = await onRequest(url, requestInit);
+                }
+                // fetch must be assigned here, otherwise it would throw the error:
+                // TypeError: Failed to execute 'fetch' on 'Window': Illegal invocation
+                const _fetch = options.fetch ?? globalThis.fetch;
+                const response = await _fetch(request);
+                if (!response.ok) {
+                    throw new Error(`SSE failed: ${response.status} ${response.statusText}`);
+                }
+                if (!response.body) {
+                    throw new Error('No body in SSE response');
+                }
+                const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+                let buffer = '';
+                const abortHandler = () => {
+                    try {
+                        reader.cancel();
+                    }
+                    catch {
+                        // noop
+                    }
+                };
+                signal.addEventListener('abort', abortHandler);
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) {
+                            break;
+                        }
+                        buffer += value;
+                        buffer = buffer.replace(/\r\n?/g, '\n'); // normalize line endings
+                        const chunks = buffer.split('\n\n');
+                        buffer = chunks.pop() ?? '';
+                        for (const chunk of chunks) {
+                            const lines = chunk.split('\n');
+                            const dataLines = [];
+                            let eventName;
+                            for (const line of lines) {
+                                if (line.startsWith('data:')) {
+                                    dataLines.push(line.replace(/^data:\s*/, ''));
+                                }
+                                else if (line.startsWith('event:')) {
+                                    eventName = line.replace(/^event:\s*/, '');
+                                }
+                                else if (line.startsWith('id:')) {
+                                    lastEventId = line.replace(/^id:\s*/, '');
+                                }
+                                else if (line.startsWith('retry:')) {
+                                    const parsed = Number.parseInt(line.replace(/^retry:\s*/, ''), 10);
+                                    if (!Number.isNaN(parsed)) {
+                                        retryDelay = parsed;
+                                    }
+                                }
+                            }
+                            let data;
+                            let parsedJson = false;
+                            if (dataLines.length) {
+                                const rawData = dataLines.join('\n');
+                                try {
+                                    data = JSON.parse(rawData);
+                                    parsedJson = true;
+                                }
+                                catch {
+                                    data = rawData;
+                                }
+                            }
+                            if (parsedJson) {
+                                if (responseValidator) {
+                                    await responseValidator(data);
+                                }
+                                if (responseTransformer) {
+                                    data = await responseTransformer(data);
+                                }
+                            }
+                            onSseEvent?.({
+                                data,
+                                event: eventName,
+                                id: lastEventId,
+                                retry: retryDelay,
+                            });
+                            if (dataLines.length) {
+                                yield data;
+                            }
+                        }
+                    }
+                }
+                finally {
+                    signal.removeEventListener('abort', abortHandler);
+                    reader.releaseLock();
+                }
+                break; // exit loop on normal completion
+            }
+            catch (error) {
+                // connection failed or aborted; retry after delay
+                onSseError?.(error);
+                if (sseMaxRetryAttempts !== undefined && attempt >= sseMaxRetryAttempts) {
+                    break; // stop after firing error
+                }
+                // exponential backoff: double retry each attempt, cap at 30s
+                const backoff = Math.min(retryDelay * 2 ** (attempt - 1), sseMaxRetryDelay ?? 30000);
+                await sleep(backoff);
+            }
+        }
+    };
+    const stream = createStream();
+    return { stream };
+}
+
+// This file is auto-generated by @hey-api/openapi-ts
+// @ts-nocheck
+const separatorArrayExplode = (style) => {
+    switch (style) {
+        case 'label':
+            return '.';
+        case 'matrix':
+            return ';';
+        case 'simple':
+            return ',';
+        default:
+            return '&';
+    }
+};
+const separatorArrayNoExplode = (style) => {
+    switch (style) {
+        case 'form':
+            return ',';
+        case 'pipeDelimited':
+            return '|';
+        case 'spaceDelimited':
+            return '%20';
+        default:
+            return ',';
+    }
+};
+const separatorObjectExplode = (style) => {
+    switch (style) {
+        case 'label':
+            return '.';
+        case 'matrix':
+            return ';';
+        case 'simple':
+            return ',';
+        default:
+            return '&';
+    }
+};
+const serializeArrayParam = ({ allowReserved, explode, name, style, value, }) => {
+    if (!explode) {
+        const joinedValues = (allowReserved ? value : value.map(v => encodeURIComponent(v))).join(separatorArrayNoExplode(style));
+        switch (style) {
+            case 'label':
+                return `.${joinedValues}`;
+            case 'matrix':
+                return `;${name}=${joinedValues}`;
+            case 'simple':
+                return joinedValues;
+            default:
+                return `${name}=${joinedValues}`;
+        }
+    }
+    const separator = separatorArrayExplode(style);
+    const joinedValues = value
+        .map((v) => {
+        if (style === 'label' || style === 'simple') {
+            return allowReserved ? v : encodeURIComponent(v);
+        }
+        return serializePrimitiveParam({
+            allowReserved,
+            name,
+            value: v,
+        });
+    })
+        .join(separator);
+    return style === 'label' || style === 'matrix' ? separator + joinedValues : joinedValues;
+};
+const serializePrimitiveParam = ({ allowReserved, name, value }) => {
+    if (value === undefined || value === null) {
+        return '';
+    }
+    if (typeof value === 'object') {
+        throw new Error('Deeply-nested arrays/objects aren’t supported. Provide your own `querySerializer()` to handle these.');
+    }
+    return `${name}=${allowReserved ? value : encodeURIComponent(value)}`;
+};
+const serializeObjectParam = ({ allowReserved, explode, name, style, value, valueOnly, }) => {
+    if (value instanceof Date) {
+        return valueOnly ? value.toISOString() : `${name}=${value.toISOString()}`;
+    }
+    if (style !== 'deepObject' && !explode) {
+        let values = [];
+        Object.entries(value).forEach(([key, v]) => {
+            values = [...values, key, allowReserved ? v : encodeURIComponent(v)];
+        });
+        const joinedValues = values.join(',');
+        switch (style) {
+            case 'form':
+                return `${name}=${joinedValues}`;
+            case 'label':
+                return `.${joinedValues}`;
+            case 'matrix':
+                return `;${name}=${joinedValues}`;
+            default:
+                return joinedValues;
+        }
+    }
+    const separator = separatorObjectExplode(style);
+    const joinedValues = Object.entries(value)
+        .map(([key, v]) => serializePrimitiveParam({
+        allowReserved,
+        name: style === 'deepObject' ? `${name}[${key}]` : key,
+        value: v,
+    }))
+        .join(separator);
+    return style === 'label' || style === 'matrix' ? separator + joinedValues : joinedValues;
+};
+
+// This file is auto-generated by @hey-api/openapi-ts
+// @ts-nocheck
+const PATH_PARAM_RE = /\{[^{}]+\}/g;
+const defaultPathSerializer = ({ path, url: _url }) => {
+    let url = _url;
+    const matches = _url.match(PATH_PARAM_RE);
+    if (matches) {
+        for (const match of matches) {
+            let explode = false;
+            let name = match.substring(1, match.length - 1);
+            let style = 'simple';
+            if (name.endsWith('*')) {
+                explode = true;
+                name = name.substring(0, name.length - 1);
+            }
+            if (name.startsWith('.')) {
+                name = name.substring(1);
+                style = 'label';
+            }
+            else if (name.startsWith(';')) {
+                name = name.substring(1);
+                style = 'matrix';
+            }
+            const value = path[name];
+            if (value === undefined || value === null) {
+                continue;
+            }
+            if (Array.isArray(value)) {
+                url = url.replace(match, serializeArrayParam({ explode, name, style, value }));
+                continue;
+            }
+            if (typeof value === 'object') {
+                url = url.replace(match, serializeObjectParam({
+                    explode,
+                    name,
+                    style,
+                    value: value,
+                    valueOnly: true,
+                }));
+                continue;
+            }
+            if (style === 'matrix') {
+                url = url.replace(match, `;${serializePrimitiveParam({
+                    name,
+                    value: value,
+                })}`);
+                continue;
+            }
+            const replaceValue = encodeURIComponent(style === 'label' ? `.${value}` : value);
+            url = url.replace(match, replaceValue);
+        }
+    }
+    return url;
+};
+const getUrl = ({ baseUrl, path, query, querySerializer, url: _url, }) => {
+    const pathUrl = _url.startsWith('/') ? _url : `/${_url}`;
+    let url = (baseUrl ?? '') + pathUrl;
+    if (path) {
+        url = defaultPathSerializer({ path, url });
+    }
+    let search = query ? querySerializer(query) : '';
+    if (search.startsWith('?')) {
+        search = search.substring(1);
+    }
+    if (search) {
+        url += `?${search}`;
+    }
+    return url;
+};
+function getValidRequestBody(options) {
+    const hasBody = options.body !== undefined;
+    const isSerializedBody = hasBody && options.bodySerializer;
+    if (isSerializedBody) {
+        if ('serializedBody' in options) {
+            const hasSerializedBody = options.serializedBody !== undefined && options.serializedBody !== '';
+            return hasSerializedBody ? options.serializedBody : null;
+        }
+        // not all clients implement a serializedBody property (i.e., client-axios)
+        return options.body !== '' ? options.body : null;
+    }
+    // plain/text body
+    if (hasBody) {
+        return options.body;
+    }
+    // no body was provided
+    return undefined;
+}
+
+// This file is auto-generated by @hey-api/openapi-ts
+// @ts-nocheck
+const getAuthToken = async (auth, callback) => {
+    const token = typeof callback === 'function' ? await callback(auth) : callback;
+    if (!token) {
+        return;
+    }
+    if (auth.scheme === 'bearer') {
+        return `Bearer ${token}`;
+    }
+    if (auth.scheme === 'basic') {
+        return `Basic ${btoa(token)}`;
+    }
+    return token;
+};
+
+// This file is auto-generated by @hey-api/openapi-ts
+// @ts-nocheck
+const createQuerySerializer = ({ parameters = {}, ...args } = {}) => {
+    const querySerializer = (queryParams) => {
+        const search = [];
+        if (queryParams && typeof queryParams === 'object') {
+            for (const name in queryParams) {
+                const value = queryParams[name];
+                if (value === undefined || value === null) {
+                    continue;
+                }
+                const options = parameters[name] || args;
+                if (Array.isArray(value)) {
+                    const serializedArray = serializeArrayParam({
+                        allowReserved: options.allowReserved,
+                        explode: true,
+                        name,
+                        style: 'form',
+                        value,
+                        ...options.array,
+                    });
+                    if (serializedArray) {
+                        search.push(serializedArray);
+                    }
+                }
+                else if (typeof value === 'object') {
+                    const serializedObject = serializeObjectParam({
+                        allowReserved: options.allowReserved,
+                        explode: true,
+                        name,
+                        style: 'deepObject',
+                        value: value,
+                        ...options.object,
+                    });
+                    if (serializedObject) {
+                        search.push(serializedObject);
+                    }
+                }
+                else {
+                    const serializedPrimitive = serializePrimitiveParam({
+                        allowReserved: options.allowReserved,
+                        name,
+                        value: value,
+                    });
+                    if (serializedPrimitive) {
+                        search.push(serializedPrimitive);
+                    }
+                }
+            }
+        }
+        return search.join('&');
+    };
+    return querySerializer;
+};
+/**
+ * Infers parseAs value from provided Content-Type header.
+ */
+const getParseAs = (contentType) => {
+    if (!contentType) {
+        // If no Content-Type header is provided, the best we can do is return the raw response body,
+        // which is effectively the same as the 'stream' option.
+        return 'stream';
+    }
+    const cleanContent = contentType.split(';')[0]?.trim();
+    if (!cleanContent) {
+        return;
+    }
+    if (cleanContent.startsWith('application/json') || cleanContent.endsWith('+json')) {
+        return 'json';
+    }
+    if (cleanContent === 'multipart/form-data') {
+        return 'formData';
+    }
+    if (['application/', 'audio/', 'image/', 'video/'].some(type => cleanContent.startsWith(type))) {
+        return 'blob';
+    }
+    if (cleanContent.startsWith('text/')) {
+        return 'text';
+    }
+};
+const checkForExistence = (options, name) => {
+    if (!name) {
+        return false;
+    }
+    if (options.headers.has(name) || options.query?.[name] || options.headers.get('Cookie')?.includes(`${name}=`)) {
+        return true;
+    }
+    return false;
+};
+async function setAuthParams(options) {
+    for (const auth of options.security ?? []) {
+        if (checkForExistence(options, auth.name)) {
+            continue;
+        }
+        const token = await getAuthToken(auth, options.auth);
+        if (!token) {
+            continue;
+        }
+        const name = auth.name ?? 'Authorization';
+        switch (auth.in) {
+            case 'query':
+                if (!options.query) {
+                    options.query = {};
+                }
+                options.query[name] = token;
+                break;
+            case 'cookie':
+                options.headers.append('Cookie', `${name}=${token}`);
+                break;
+            case 'header':
+            default:
+                options.headers.set(name, token);
+                break;
+        }
+    }
+}
+const buildUrl = options => getUrl({
+    baseUrl: options.baseUrl,
+    path: options.path,
+    query: options.query,
+    querySerializer: typeof options.querySerializer === 'function' ? options.querySerializer : createQuerySerializer(options.querySerializer),
+    url: options.url,
+});
+const mergeConfigs = (a, b) => {
+    const config = { ...a, ...b };
+    if (config.baseUrl?.endsWith('/')) {
+        config.baseUrl = config.baseUrl.substring(0, config.baseUrl.length - 1);
+    }
+    config.headers = mergeHeaders(a.headers, b.headers);
+    return config;
+};
+const headersEntries = (headers) => {
+    const entries = [];
+    headers.forEach((value, key) => {
+        entries.push([key, value]);
+    });
+    return entries;
+};
+const mergeHeaders = (...headers) => {
+    const mergedHeaders = new Headers();
+    for (const header of headers) {
+        if (!header) {
+            continue;
+        }
+        const iterator = header instanceof Headers ? headersEntries(header) : Object.entries(header);
+        for (const [key, value] of iterator) {
+            if (value === null) {
+                mergedHeaders.delete(key);
+            }
+            else if (Array.isArray(value)) {
+                for (const v of value) {
+                    mergedHeaders.append(key, v);
+                }
+            }
+            else if (value !== undefined) {
+                // assume object headers are meant to be JSON stringified, i.e., their
+                // content value in OpenAPI specification is 'application/json'
+                mergedHeaders.set(key, typeof value === 'object' ? JSON.stringify(value) : value);
+            }
+        }
+    }
+    return mergedHeaders;
+};
+class Interceptors {
+    fns = [];
+    clear() {
+        this.fns = [];
+    }
+    eject(id) {
+        const index = this.getInterceptorIndex(id);
+        if (this.fns[index]) {
+            this.fns[index] = null;
+        }
+    }
+    exists(id) {
+        const index = this.getInterceptorIndex(id);
+        return Boolean(this.fns[index]);
+    }
+    getInterceptorIndex(id) {
+        if (typeof id === 'number') {
+            return this.fns[id] ? id : -1;
+        }
+        return this.fns.indexOf(id);
+    }
+    update(id, fn) {
+        const index = this.getInterceptorIndex(id);
+        if (this.fns[index]) {
+            this.fns[index] = fn;
+            return id;
+        }
+        return false;
+    }
+    use(fn) {
+        this.fns.push(fn);
+        return this.fns.length - 1;
+    }
+}
+const createInterceptors = () => ({
+    error: new Interceptors(),
+    request: new Interceptors(),
+    response: new Interceptors(),
+});
+const defaultQuerySerializer = createQuerySerializer({
+    allowReserved: false,
+    array: {
+        explode: true,
+        style: 'form',
+    },
+    object: {
+        explode: true,
+        style: 'deepObject',
+    },
+});
+const defaultHeaders = {
+    'Content-Type': 'application/json',
+};
+const createConfig = (override = {}) => ({
+    ...jsonBodySerializer,
+    headers: defaultHeaders,
+    parseAs: 'auto',
+    querySerializer: defaultQuerySerializer,
+    ...override,
+});
+
+// This file is auto-generated by @hey-api/openapi-ts
+// @ts-nocheck
+const createClient = (config = {}) => {
+    let _config = mergeConfigs(createConfig(), config);
+    const getConfig = () => ({ ..._config });
+    const setConfig = (config) => {
+        _config = mergeConfigs(_config, config);
+        return getConfig();
+    };
+    const interceptors = createInterceptors();
+    const beforeRequest = async (options) => {
+        const opts = {
+            ..._config,
+            ...options,
+            fetch: options.fetch ?? _config.fetch ?? globalThis.fetch,
+            headers: mergeHeaders(_config.headers, options.headers),
+            serializedBody: undefined,
+        };
+        if (opts.security) {
+            await setAuthParams(opts);
+        }
+        if (opts.requestValidator) {
+            await opts.requestValidator(opts);
+        }
+        if (opts.body !== undefined && opts.bodySerializer) {
+            opts.serializedBody = opts.bodySerializer(opts.body);
+        }
+        // remove Content-Type header if body is empty to avoid sending invalid requests
+        if (opts.body === undefined || opts.serializedBody === '') {
+            opts.headers.delete('Content-Type');
+        }
+        const resolvedOpts = opts;
+        const url = buildUrl(resolvedOpts);
+        return { opts: resolvedOpts, url };
+    };
+    const request = async (options) => {
+        const throwOnError = options.throwOnError ?? _config.throwOnError;
+        const responseStyle = options.responseStyle ?? _config.responseStyle;
+        let request;
+        let response;
+        try {
+            const { opts, url } = await beforeRequest(options);
+            const requestInit = {
+                redirect: 'follow',
+                ...opts,
+                body: getValidRequestBody(opts),
+            };
+            request = new Request(url, requestInit);
+            for (const fn of interceptors.request.fns) {
+                if (fn) {
+                    request = await fn(request, opts);
+                }
+            }
+            // fetch must be assigned here, otherwise it would throw the error:
+            // TypeError: Failed to execute 'fetch' on 'Window': Illegal invocation
+            const _fetch = opts.fetch;
+            response = await _fetch(request);
+            for (const fn of interceptors.response.fns) {
+                if (fn) {
+                    response = await fn(response, request, opts);
+                }
+            }
+            const result = {
+                request,
+                response,
+            };
+            if (response.ok) {
+                const parseAs = (opts.parseAs === 'auto' ? getParseAs(response.headers.get('Content-Type')) : opts.parseAs) ?? 'json';
+                if (response.status === 204 || response.headers.get('Content-Length') === '0') {
+                    let emptyData;
+                    switch (parseAs) {
+                        case 'arrayBuffer':
+                        case 'blob':
+                        case 'text':
+                            emptyData = await response[parseAs]();
+                            break;
+                        case 'formData':
+                            emptyData = new FormData();
+                            break;
+                        case 'stream':
+                            emptyData = response.body;
+                            break;
+                        case 'json':
+                        default:
+                            emptyData = {};
+                            break;
+                    }
+                    return opts.responseStyle === 'data'
+                        ? emptyData
+                        : {
+                            data: emptyData,
+                            ...result,
+                        };
+                }
+                let data;
+                switch (parseAs) {
+                    case 'arrayBuffer':
+                    case 'blob':
+                    case 'formData':
+                    case 'text':
+                        data = await response[parseAs]();
+                        break;
+                    case 'json': {
+                        // Some servers return 200 with no Content-Length and empty body.
+                        // response.json() would throw; read as text and parse if non-empty.
+                        const text = await response.text();
+                        data = text ? JSON.parse(text) : {};
+                        break;
+                    }
+                    case 'stream':
+                        return opts.responseStyle === 'data'
+                            ? response.body
+                            : {
+                                data: response.body,
+                                ...result,
+                            };
+                }
+                if (parseAs === 'json') {
+                    if (opts.responseValidator) {
+                        await opts.responseValidator(data);
+                    }
+                    if (opts.responseTransformer) {
+                        data = await opts.responseTransformer(data);
+                    }
+                }
+                return opts.responseStyle === 'data'
+                    ? data
+                    : {
+                        data,
+                        ...result,
+                    };
+            }
+            const textError = await response.text();
+            let jsonError;
+            try {
+                jsonError = JSON.parse(textError);
+            }
+            catch {
+                // noop
+            }
+            throw jsonError ?? textError;
+        }
+        catch (error) {
+            let finalError = error;
+            for (const fn of interceptors.error.fns) {
+                if (fn) {
+                    finalError = await fn(finalError, response, request, options);
+                }
+            }
+            finalError = finalError || {};
+            if (throwOnError) {
+                throw finalError;
+            }
+            // TODO: we probably want to return error and improve types
+            return responseStyle === 'data'
+                ? undefined
+                : {
+                    error: finalError,
+                    request,
+                    response,
+                };
+        }
+    };
+    const makeMethodFn = (method) => (options) => request({ ...options, method });
+    const makeSseFn = (method) => async (options) => {
+        const { opts, url } = await beforeRequest(options);
+        return createSseClient({
+            ...opts,
+            body: opts.body,
+            method,
+            onRequest: async (url, init) => {
+                let request = new Request(url, init);
+                for (const fn of interceptors.request.fns) {
+                    if (fn) {
+                        request = await fn(request, opts);
+                    }
+                }
+                return request;
+            },
+            serializedBody: getValidRequestBody(opts),
+            url,
+        });
+    };
+    const _buildUrl = options => buildUrl({ ..._config, ...options });
+    return {
+        buildUrl: _buildUrl,
+        connect: makeMethodFn('CONNECT'),
+        delete: makeMethodFn('DELETE'),
+        get: makeMethodFn('GET'),
+        getConfig,
+        head: makeMethodFn('HEAD'),
+        interceptors,
+        options: makeMethodFn('OPTIONS'),
+        patch: makeMethodFn('PATCH'),
+        post: makeMethodFn('POST'),
+        put: makeMethodFn('PUT'),
+        request,
+        setConfig,
+        sse: {
+            connect: makeSseFn('CONNECT'),
+            delete: makeSseFn('DELETE'),
+            get: makeSseFn('GET'),
+            head: makeSseFn('HEAD'),
+            options: makeSseFn('OPTIONS'),
+            patch: makeSseFn('PATCH'),
+            post: makeSseFn('POST'),
+            put: makeSseFn('PUT'),
+            trace: makeSseFn('TRACE'),
+        },
+        trace: makeMethodFn('TRACE'),
+    };
+};
+
+var version = "0.4.0";
 var pkg = {
 	version: version};
 
 class HttpError extends Error {
+    request;
+    response;
     constructor(request, response) {
         super(`HTTP ${response.status} ${response.statusText}`);
         this.request = request;
         this.response = response;
+        this.name = 'HttpError';
         Object.defineProperty(this, 'request', { enumerable: false });
         Object.defineProperty(this, 'response', { enumerable: false });
     }
 }
 
 class ApiError extends HttpError {
+    data;
     constructor(request, response, data) {
         super(request, response);
         this.data = data;
+        this.name = 'ApiError';
     }
 }
 
 // This file is auto-generated by @hey-api/openapi-ts
-const client = J(w({
-    baseUrl: 'https://api.globalping.io',
-}));
+// @ts-nocheck
+const client = createClient(createConfig({ baseUrl: 'https://api.globalping.io' }));
 
 // This file is auto-generated by @hey-api/openapi-ts
+// @ts-nocheck
 /**
  * Create a measurement
+ *
  * Creates a new measurement with parameters set in the request body.
  * The measurement runs asynchronously and you can retrieve its current state at the URL returned in the `Location` header.
  *
@@ -384782,29 +385577,29 @@ const client = J(w({
  * - Repeating the measurement with fewer probes.
  *
  */
-const createMeasurement = (options) => {
-    var _a;
-    return ((_a = options === null || options === void 0 ? void 0 : options.client) !== null && _a !== void 0 ? _a : client).post({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http',
-            },
-            {
-                scheme: 'bearer',
-                type: 'http',
-            },
-        ],
-        url: '/v1/measurements',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options === null || options === void 0 ? void 0 : options.headers,
+const createMeasurement = (options) => (options.client ?? client).post({
+    security: [
+        {
+            key: 'BearerAuth',
+            scheme: 'bearer',
+            type: 'http',
         },
-    });
-};
+        {
+            key: 'OAuth2',
+            scheme: 'bearer',
+            type: 'http',
+        },
+    ],
+    url: '/v1/measurements',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+    },
+});
 /**
  * Get a measurement by ID
+ *
  * Returns the status and results of an existing measurement.
  * Measurements are typically available for up to 7 days after creation.
  *
@@ -384821,60 +385616,51 @@ const createMeasurement = (options) => {
  * requests per second may trigger a rate limit and prevent you from accessing the results for a few seconds.
  *
  */
-const getMeasurement = (options) => {
-    var _a;
-    return ((_a = options.client) !== null && _a !== void 0 ? _a : client).get({
-        url: '/v1/measurements/{id}',
-        ...options,
-    });
-};
+const getMeasurement = (options) => (options.client ?? client).get({ url: '/v1/measurements/{id}', ...options });
 /**
  * List probes currently online
+ *
  * Returns a list of all probes currently online and their metadata, such as location and assigned tags.
  *
  * > **Note**: Probes don't expose unique IDs that would allow you to explicitly select them.
  * Instead, specify the requested location or an ID of an existing measurement when creating new measurements.
  *
  */
-const listProbes = (options) => {
-    var _a;
-    return ((_a = options === null || options === void 0 ? void 0 : options.client) !== null && _a !== void 0 ? _a : client).get({
-        url: '/v1/probes',
-        ...options,
-    });
-};
+const listProbes = (options) => (options?.client ?? client).get({ url: '/v1/probes', ...options });
 /**
  * Get current rate limits
+ *
  * Returns rate limits for the current user (if authenticated) or IP address (if not authenticated).
  *
  */
-const getLimits = (options) => {
-    var _a;
-    return ((_a = options === null || options === void 0 ? void 0 : options.client) !== null && _a !== void 0 ? _a : client).get({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http',
-            },
-            {
-                scheme: 'bearer',
-                type: 'http',
-            },
-        ],
-        url: '/v1/limits',
-        ...options,
-    });
-};
+const getLimits = (options) => (options?.client ?? client).get({
+    security: [
+        {
+            key: 'BearerAuth',
+            scheme: 'bearer',
+            type: 'http',
+        },
+        {
+            key: 'OAuth2',
+            scheme: 'bearer',
+            type: 'http',
+        },
+    ],
+    url: '/v1/limits',
+    ...options,
+});
 
 // This file is auto-generated by @hey-api/openapi-ts
+// @ts-nocheck
+/**
+ * The transport protocol to use.
+ */
+const PingProtocol = { ICMP: 'ICMP', TCP: 'TCP' };
 /**
  * EXPERIMENTAL: The IP version to use. Only allowed if the target is a hostname.
  *
  */
-const IpVersion = {
-    4: 4,
-    6: 6,
-};
+const IpVersion = { 4: 4, 6: 6 };
 /**
  * The transport protocol to use.
  */
@@ -384907,10 +385693,7 @@ const DnsQueryType = {
 /**
  * The protocol to use for the DNS query.
  */
-const DnsProtocol = {
-    TCP: 'TCP',
-    UDP: 'UDP',
-};
+const DnsProtocol = { TCP: 'TCP', UDP: 'UDP' };
 /**
  * The transport protocol to use.
  */
@@ -384993,43 +385776,85 @@ const TlsKeyType = {
 /**
  * The current measurement status. Any value other than `in-progress` is final.
  */
-const MeasurementStatus = {
-    IN_PROGRESS: 'in-progress',
-    FINISHED: 'finished',
+const MeasurementStatus = { IN_PROGRESS: 'in-progress', FINISHED: 'finished' };
+/**
+ * EXPERIMENTAL: The most likely source of the failure:
+ * - `target` covers the target and its network path, including misconfigured DNS records and timeouts,
+ * - `resolver` covers failures communicating with or receiving an unusable response from the DNS resolver,
+ * - `internal` covers Globalping probe and API failures.
+ * The exact source cannot always be determined reliably, so this field is a best-effort classification.
+ *
+ */
+const FailureSource = {
+    TARGET: 'target',
+    RESOLVER: 'resolver',
+    INTERNAL: 'internal',
 };
 /**
  * Type of the rate limit.
  */
-const RateLimitType = {
-    IP: 'ip',
-    USER: 'user',
-};
+const RateLimitType = { IP: 'ip', USER: 'user' };
 
-const wait = async (ms) => {
-    await new Promise(resolve => setTimeout(resolve, ms));
+const wait = async (ms, signal) => {
+    await new Promise((resolve, reject) => {
+        signal?.throwIfAborted();
+        const abortHandler = () => {
+            clearTimeout(timeout);
+            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- AbortSignal reasons can be any value.
+            reject(signal?.reason);
+        };
+        const timeout = setTimeout(() => {
+            signal?.removeEventListener('abort', abortHandler);
+            resolve();
+        }, ms);
+        signal?.addEventListener('abort', abortHandler, { once: true });
+    });
 };
 
 class Globalping {
+    auth;
+    client;
+    userAgent;
+    throwApiErrors;
+    timeout;
     constructor({ auth, userAgent, throwApiErrors, timeout } = {}) {
-        this.userAgent = userAgent !== null && userAgent !== void 0 ? userAgent : `globalping-typescript/${pkg.version} (https://github.com/jsdelivr/globalping-typescript)`;
-        this.throwApiErrors = throwApiErrors !== null && throwApiErrors !== void 0 ? throwApiErrors : false;
-        this.timeout = timeout !== null && timeout !== void 0 ? timeout : 30000;
+        this.userAgent = userAgent ?? `globalping-typescript/${pkg.version} (https://github.com/jsdelivr/globalping-typescript)`;
+        this.throwApiErrors = throwApiErrors ?? false;
+        this.timeout = timeout ?? 30000;
         this.auth = auth;
-        this.client = J(w({
+        this.client = createClient(createConfig({
             baseUrl: 'https://api.globalping.io',
+            fetch: (...args) => {
+                const request = new Request(...args);
+                const headers = new Headers(request.headers);
+                headers.set('User-Agent', this.userAgent);
+                if (this.auth) {
+                    headers.set('Authorization', `Bearer ${this.auth}`);
+                }
+                return fetch(new Request(request, {
+                    headers,
+                    signal: AbortSignal.any([request.signal, AbortSignal.timeout(this.timeout)]),
+                }));
+            },
         }));
     }
     /**
      * @see {@link sdk.createMeasurement} for the API docs
      */
     createMeasurement(measurement) {
-        return this.transformResult(this.request(createMeasurement, { body: measurement }));
+        return this.transformResult(createMeasurement({
+            body: measurement,
+            client: this.client,
+        }));
     }
     /**
      * @see {@link sdk.getMeasurement} for the API docs
      */
     async getMeasurement(id) {
-        const result = await this.transformResult(this.request(getMeasurement, { path: { id } }));
+        const result = await this.transformResult(getMeasurement({
+            path: { id },
+            client: this.client,
+        }));
         if (!result.ok) {
             return result;
         }
@@ -385038,19 +385863,26 @@ class Globalping {
     /**
      * @see {@link sdk.getMeasurement} for the API docs
      */
-    async awaitMeasurement(id) {
+    async awaitMeasurement(id, { signal } = {}) {
         const getMeasurement$1 = (eTag) => {
-            return this.request(getMeasurement, {
+            return getMeasurement({
                 path: { id },
                 headers: eTag ? {
                     'If-None-Match': eTag,
                 } : {},
+                ...signal ? { signal } : {},
+                client: this.client,
             });
         };
-        let internalResult = await getMeasurement$1();
+        const start = Date.now();
+        let internalResult = Globalping.requireRequestCompleted(await getMeasurement$1());
+        const maxTime = internalResult.data?.timeout === undefined ? 35000 : (internalResult.data.timeout + 10) * 1000;
         while (internalResult.data && internalResult.data.status === MeasurementStatus.IN_PROGRESS) {
-            await wait(500);
-            const newInternalResult = await getMeasurement$1(internalResult.response.headers.get('ETag'));
+            if (Date.now() - start > maxTime) {
+                throw new Error(`Timed out waiting for measurement ${id} to finish.`);
+            }
+            await wait(500, signal);
+            const newInternalResult = Globalping.requireRequestCompleted(await getMeasurement$1(internalResult.response.headers.get('ETag')));
             if (newInternalResult.response.status !== 304) {
                 internalResult = newInternalResult;
             }
@@ -385067,41 +385899,39 @@ class Globalping {
      * @see {@link sdk.listProbes} for the API docs
      */
     async listProbes() {
-        return this.transformResult(this.request(listProbes));
+        return this.transformResult(listProbes({
+            client: this.client,
+        }));
     }
     /**
      * @see {@link sdk.getLimits} for the API docs
      */
     async getLimits() {
-        return this.transformResult(this.request(getLimits));
-    }
-    request(fn, options) {
-        const optionsWithDefaults = {
-            auth: this.auth,
-            timeout: this.timeout,
-            userAgent: this.userAgent,
-            ...(options || {}),
-        };
-        return fn({
+        return this.transformResult(getLimits({
             client: this.client,
-            fetch: (request) => {
-                var _a;
-                const headers = new Headers(request.headers);
-                headers.set('User-Agent', optionsWithDefaults.userAgent);
-                if (optionsWithDefaults.auth) {
-                    headers.set('Authorization', `Bearer ${optionsWithDefaults.auth}`);
-                }
-                return fetch(new Request(request, {
-                    headers,
-                    signal: (_a = optionsWithDefaults.signal) !== null && _a !== void 0 ? _a : AbortSignal.timeout(optionsWithDefaults.timeout),
-                }));
-            },
-            ...optionsWithDefaults,
-        });
+        }));
+    }
+    static requireRequestCompleted(result) {
+        if (!result.request || !result.response) {
+            if ('error' in result) {
+                throw result.error;
+            }
+            throw new Error('Request failed before receiving a response.');
+        }
+        return result;
     }
     async transformResult(requestResult) {
-        const { data, error, request, response } = await requestResult;
+        const internalResult = Globalping.requireRequestCompleted(await requestResult);
+        const { data, error, request, response } = internalResult;
         if (error != null) {
+            if (response.ok) {
+                if (error instanceof Error) {
+                    throw error;
+                }
+                const responseError = new Error('Failed to process response.');
+                Object.defineProperty(responseError, 'cause', { value: error });
+                throw responseError;
+            }
             if (typeof error !== 'object' || !('error' in error)) {
                 throw new HttpError(request, response);
             }
@@ -385145,6 +385975,7 @@ exports.ApiError = ApiError;
 exports.ContinentCode = ContinentCode;
 exports.DnsProtocol = DnsProtocol;
 exports.DnsQueryType = DnsQueryType;
+exports.FailureSource = FailureSource;
 exports.Globalping = Globalping;
 exports.HttpError = HttpError;
 exports.HttpProtocol = HttpProtocol;
@@ -385153,6 +385984,7 @@ exports.IpVersion = IpVersion;
 exports.MeasurementStatus = MeasurementStatus;
 exports.MeasurementType = MeasurementType;
 exports.MtrProtocol = MtrProtocol;
+exports.PingProtocol = PingProtocol;
 exports.RateLimitType = RateLimitType;
 exports.RegionName = RegionName;
 exports.TlsKeyType = TlsKeyType;
