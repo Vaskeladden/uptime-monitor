@@ -356766,6 +356766,7 @@ class Receiver extends Writable {
 
     this._totalPayloadLength = 0;
     this._messageLength = 0;
+    this._numFragments = 0;
     this._fragments = [];
 
     this._state = GET_INFO;
@@ -357142,6 +357143,17 @@ class Receiver extends Writable {
 
     if (this._opcode > 0x07) return this.controlMessage(data);
 
+    if (this._maxFragments > 0 && ++this._numFragments > this._maxFragments) {
+      this._loop = false;
+      return error(
+        RangeError,
+        'Too many message fragments',
+        false,
+        1008,
+        'WS_ERR_TOO_MANY_BUFFERED_PARTS'
+      );
+    }
+
     if (this._compressed) {
       this._state = INFLATING;
       this.decompress(data, cb);
@@ -357149,20 +357161,6 @@ class Receiver extends Writable {
     }
 
     if (data.length) {
-      if (
-        this._maxFragments > 0 &&
-        this._fragments.length >= this._maxFragments
-      ) {
-        this._loop = false;
-        return error(
-          RangeError,
-          'Too many message fragments',
-          false,
-          1008,
-          'WS_ERR_TOO_MANY_BUFFERED_PARTS'
-        );
-      }
-
       //
       // This message is not compressed so its lenght is the sum of the payload
       // length of all fragments.
@@ -357201,21 +357199,6 @@ class Receiver extends Writable {
           );
         }
 
-        if (
-          this._maxFragments > 0 &&
-          this._fragments.length >= this._maxFragments
-        ) {
-          return cb(
-            error(
-              RangeError,
-              'Too many message fragments',
-              false,
-              1008,
-              'WS_ERR_TOO_MANY_BUFFERED_PARTS'
-            )
-          );
-        }
-
         this._fragments.push(buf);
       }
 
@@ -357240,6 +357223,7 @@ class Receiver extends Writable {
       this._totalPayloadLength = 0;
       this._messageLength = 0;
       this._fragmented = 0;
+      this._numFragments = 0;
       this._fragments = [];
 
       if (this._opcode === 2) {
@@ -358122,9 +358106,9 @@ class WebSocketServer extends EventEmitter {
    *     track clients
    * @param {Function} [options.handleProtocols] A hook to handle protocols
    * @param {String} [options.host] The hostname where to bind the server
-   * @param {Number} [options.maxBufferedChunks=1048576] The maximum number of
+   * @param {Number} [options.maxBufferedChunks=262144] The maximum number of
    *     buffered data chunks
-   * @param {Number} [options.maxFragments=131072] The maximum number of message
+   * @param {Number} [options.maxFragments=16384] The maximum number of message
    *     fragments
    * @param {Number} [options.maxPayload=104857600] The maximum allowed message
    *     size
@@ -358142,8 +358126,8 @@ class WebSocketServer extends EventEmitter {
     super();
 
     options = {
-      maxBufferedChunks: 1024 * 1024,
-      maxFragments: 128 * 1024,
+      maxBufferedChunks: 256 * 1024,
+      maxFragments: 16 * 1024,
       maxPayload: 100 * 1024 * 1024,
       perMessageDeflate: false,
       handleProtocols: null,
@@ -359132,9 +359116,9 @@ module.exports = WebSocket;
  *     `Sec-WebSocket-Version` header
  * @param {String} [options.origin] Value of the `Origin` or
  *     `Sec-WebSocket-Origin` header
- * @param {Number} [options.maxBufferedChunks=1048576] The maximum number of
+ * @param {Number} [options.maxBufferedChunks=262144] The maximum number of
  *     buffered data chunks
- * @param {Number} [options.maxFragments=131072] The maximum number of message
+ * @param {Number} [options.maxFragments=16384] The maximum number of message
  *     fragments
  * @param {Number} [options.maxPayload=104857600] The maximum allowed message
  *     size
@@ -359147,8 +359131,8 @@ module.exports = WebSocket;
 function initAsClient(websocket, address, protocols, options) {
   const opts = {
     protocolVersion: protocolVersions[1],
-    maxBufferedChunks: 1024 * 1024,
-    maxFragments: 128 * 1024,
+    maxBufferedChunks: 256 * 1024,
+    maxFragments: 16 * 1024,
     maxPayload: 100 * 1024 * 1024,
     perMessageDeflate: true,
     followRedirects: false,
