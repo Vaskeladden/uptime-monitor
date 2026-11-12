@@ -48,7 +48,7 @@
     "@actions/core": "^1.2.7",
     "@actions/github": "^9.0.0",
     "@koj/config": "^1.2.11",
-    "@octokit/rest": "^18.5.2",
+    "@octokit/rest": "^22.0.0",
     "@sindresorhus/slugify": "^1.1.0",
     "axios": "^0.21.1",
     "dayjs": "^1.10.4",
