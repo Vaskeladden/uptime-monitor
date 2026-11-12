@@ -20,6 +20,18 @@
       "schedule": [
         "before 9am on monday"
       ]
+    },
+    {
+      "description": [
+        "CI must build dist/ on the Node major GitHub's runner uses for JavaScript actions (action.yml `using: node24`); the shipped node-libcurl binary only loads on the Node that built it, and tooling/smoke-packaged-curl.cjs enforces the match. Move CI Node, action.yml and node-libcurl together in one PR once the runner runs node26 actions."
+      ],
+      "matchDepNames": [
+        "node"
+      ],
+      "matchFileNames": [
+        ".github/workflows/**"
+      ],
+      "allowedVersions": "24"
     }
   ]
 }
