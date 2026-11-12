@@ -6,5 +6,20 @@
   "forkProcessing": "enabled",
   "extends": [
     "github>Vaskeladden/status:renovate-public#refs/heads/renovate-policy"
+  ],
+  "packageRules": [
+    {
+      "description": [
+        "Every npm update rebuilds the committed dist/ package, so separate PRs conflict with each other after each merge. One weekly group needs one rebuild."
+      ],
+      "matchManagers": [
+        "npm"
+      ],
+      "groupName": "npm dependencies",
+      "groupSlug": "npm",
+      "schedule": [
+        "before 9am on monday"
+      ]
+    }
   ]
 }
