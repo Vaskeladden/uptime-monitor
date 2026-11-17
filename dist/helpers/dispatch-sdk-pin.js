@@ -1,9 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SDK_FILES = exports.SDK_REVISION = void 0;
 // Exact published SDK revision and file digests; no private source is included.
-exports.SDK_REVISION = "fdff4366052081debb8928ec75ea5a1e9f8e1b7c";
-exports.SDK_FILES = {
+export const SDK_REVISION = "fdff4366052081debb8928ec75ea5a1e9f8e1b7c";
+export const SDK_FILES = {
     "package.json": "29a842f09aee8558d001bc62981dbd83572324602462ab0b7a60f9f9bc38634a",
     "package-lock.json": "1a60555a98f7d2f1327282d51ca9bfd254fc3f880359cab11c6d6ac7fe7d5630",
     "dispatch.cjs": "395ab842e7ac5e8af12b2916c9e14273162ec1ff944f6b7b7f040a22d9db8086",

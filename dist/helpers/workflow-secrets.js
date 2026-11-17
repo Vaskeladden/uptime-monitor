@@ -1,6 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.renderSecretsContext = exports.getWorkflowSecretNames = exports.getConfiguredSecretReferences = exports.validateSecretNames = exports.UPPTIME_RUNTIME_SECRET_NAMES = void 0;
 const SECRET_NAME_PATTERN = /^[A-Z_][A-Z0-9_]*$/;
 const DISCOVERABLE_SECRET_PATTERN = /\$([A-Z_][A-Z0-9_]*)/g;
 const EXCLUDED_DISCOVERED_NAMES = new Set([
@@ -8,7 +5,7 @@ const EXCLUDED_DISCOVERED_NAMES = new Set([
     "DYNAMIC_RANDOM_NUMBER",
     "GH_PAT",
 ]);
-exports.UPPTIME_RUNTIME_SECRET_NAMES = [
+export const UPPTIME_RUNTIME_SECRET_NAMES = [
     "DYNAMIC_STRING_LENGTH",
     "GLOBALPING_TOKEN",
     "NOTIFICATIONS_DOWN_MESSAGE",
@@ -104,7 +101,7 @@ exports.UPPTIME_RUNTIME_SECRET_NAMES = [
 const invalidSecretNameError = (name) => new Error(`Invalid secret name in .upptimerc.yml secrets allowlist: ${name}. ` +
     "GitHub secret names must contain only uppercase letters, numbers, and underscores, " +
     "must not start with a number, and must not start with GITHUB_.");
-const validateSecretNames = (names) => {
+export const validateSecretNames = (names) => {
     if (!Array.isArray(names)) {
         throw new Error("Invalid .upptimerc.yml secrets allowlist: expected a list of GitHub secret names.");
     }
@@ -121,7 +118,6 @@ const validateSecretNames = (names) => {
     }
     return validatedNames;
 };
-exports.validateSecretNames = validateSecretNames;
 const collectSecretReferences = (value, names) => {
     if (typeof value !== "string")
         return;
@@ -132,7 +128,7 @@ const collectSecretReferences = (value, names) => {
         }
     }
 };
-const getConfiguredSecretReferences = (config) => {
+export const getConfiguredSecretReferences = (config) => {
     const names = new Set();
     for (const site of config.sites || []) {
         collectSecretReferences(site.url, names);
@@ -147,17 +143,15 @@ const getConfiguredSecretReferences = (config) => {
     }
     return [...names].sort();
 };
-exports.getConfiguredSecretReferences = getConfiguredSecretReferences;
-const getWorkflowSecretNames = (config) => {
+export const getWorkflowSecretNames = (config) => {
     if (config.secrets !== undefined)
-        return (0, exports.validateSecretNames)(config.secrets);
+        return validateSecretNames(config.secrets);
     return [
-        ...new Set([...exports.UPPTIME_RUNTIME_SECRET_NAMES, ...(0, exports.getConfiguredSecretReferences)(config)]),
+        ...new Set([...UPPTIME_RUNTIME_SECRET_NAMES, ...getConfiguredSecretReferences(config)]),
     ].sort();
 };
-exports.getWorkflowSecretNames = getWorkflowSecretNames;
-const renderSecretsContext = (names) => {
-    const validatedNames = (0, exports.validateSecretNames)(names);
+export const renderSecretsContext = (names) => {
+    const validatedNames = validateSecretNames(names);
     const secretPairs = validatedNames
         .map((name) => `${JSON.stringify(name)}:\${{ toJson(secrets.${name}) }}`)
         .join(",");
@@ -165,5 +159,4 @@ const renderSecretsContext = (names) => {
     // keeps JSON structure static while each allowlisted secret is resolved at runtime.
     return `'{${secretPairs}}'`;
 };
-exports.renderSecretsContext = renderSecretsContext;
 //# sourceMappingURL=workflow-secrets.js.map

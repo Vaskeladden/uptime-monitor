@@ -1,19 +1,13 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendNotification = exports.createTeamsAdaptiveCardPayload = exports.formatTelegramHtmlMessage = exports.formatNotificationError = void 0;
-const axios_1 = __importDefault(require("axios"));
-const notifme_sdk_1 = __importDefault(require("notifme-sdk"));
-const environment_1 = require("./environment");
-const secrets_1 = require("./secrets");
+import axios from "axios";
+import NotifmeSdk from "notifme-sdk";
+import { replaceEnvironmentVariables } from "./environment";
+import { getSecret } from "./secrets";
 const notifmeChannelLabels = {
     email: "email",
     sms: "SMS",
     slack: "Slack",
 };
-const formatNotificationError = (error) => {
+export const formatNotificationError = (error) => {
     if (error instanceof Error)
         return error.message;
     if (typeof error === "string")
@@ -25,9 +19,8 @@ const formatNotificationError = (error) => {
     }
     return String(error);
 };
-exports.formatNotificationError = formatNotificationError;
 const logNotificationError = (channel, error) => {
-    console.log(`Error sending ${channel}: ${(0, exports.formatNotificationError)(error)}`);
+    console.log(`Error sending ${channel}: ${formatNotificationError(error)}`);
 };
 const logNotifmeSendResult = (channel, result) => {
     const label = notifmeChannelLabels[channel];
@@ -38,13 +31,12 @@ const logNotifmeSendResult = (channel, result) => {
     console.log(`Success ${label}`);
     return true;
 };
-const formatTelegramHtmlMessage = (message) => message
+export const formatTelegramHtmlMessage = (message) => message
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/\*\*([\s\S]*?)\*\*/g, "<b>$1</b>");
-exports.formatTelegramHtmlMessage = formatTelegramHtmlMessage;
-const createTeamsAdaptiveCardPayload = (message) => ({
+export const createTeamsAdaptiveCardPayload = (message) => ({
     type: "message",
     attachments: [
         {
@@ -65,134 +57,133 @@ const createTeamsAdaptiveCardPayload = (message) => ({
         },
     ],
 });
-exports.createTeamsAdaptiveCardPayload = createTeamsAdaptiveCardPayload;
 const channels = {};
-if ((0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SENDGRID") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SES") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SPARKPOST") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_MAILGUN") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SMTP")) {
+if (getSecret("NOTIFICATION_EMAIL_SENDGRID") ||
+    getSecret("NOTIFICATION_EMAIL_SES") ||
+    getSecret("NOTIFICATION_EMAIL_SPARKPOST") ||
+    getSecret("NOTIFICATION_EMAIL_MAILGUN") ||
+    getSecret("NOTIFICATION_EMAIL_SMTP")) {
     channels.email = {
         providers: [],
-        multiProviderStrategy: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_STRATEGY") ||
+        multiProviderStrategy: getSecret("NOTIFICATION_EMAIL_STRATEGY") ||
             "roundrobin",
     };
-    if ((0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SENDGRID")) {
+    if (getSecret("NOTIFICATION_EMAIL_SENDGRID")) {
         channels.email.providers.push({
             type: "sendgrid",
-            apiKey: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SENDGRID_API_KEY"),
+            apiKey: getSecret("NOTIFICATION_EMAIL_SENDGRID_API_KEY"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SES")) {
+    if (getSecret("NOTIFICATION_EMAIL_SES")) {
         channels.email.providers.push({
             type: "ses",
-            region: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SES_REGION"),
-            accessKeyId: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SES_ACCESS_KEY_ID"),
-            secretAccessKey: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SES_SECRET_ACCESS_KEY"),
-            sessionToken: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SES_SESSION_TOKEN"),
+            region: getSecret("NOTIFICATION_EMAIL_SES_REGION"),
+            accessKeyId: getSecret("NOTIFICATION_EMAIL_SES_ACCESS_KEY_ID"),
+            secretAccessKey: getSecret("NOTIFICATION_EMAIL_SES_SECRET_ACCESS_KEY"),
+            sessionToken: getSecret("NOTIFICATION_EMAIL_SES_SESSION_TOKEN"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SPARKPOST")) {
+    if (getSecret("NOTIFICATION_EMAIL_SPARKPOST")) {
         channels.email.providers.push({
             type: "sparkpost",
-            apiKey: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SPARKPOST_API_KEY"),
+            apiKey: getSecret("NOTIFICATION_EMAIL_SPARKPOST_API_KEY"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_EMAIL_MAILGUN")) {
+    if (getSecret("NOTIFICATION_EMAIL_MAILGUN")) {
         channels.email.providers.push({
             type: "mailgun",
-            apiKey: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_MAILGUN_API_KEY"),
-            domainName: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_MAILGUN_DOMAIN_NAME"),
+            apiKey: getSecret("NOTIFICATION_EMAIL_MAILGUN_API_KEY"),
+            domainName: getSecret("NOTIFICATION_EMAIL_MAILGUN_DOMAIN_NAME"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SMTP")) {
+    if (getSecret("NOTIFICATION_EMAIL_SMTP")) {
         channels.email.providers.push({
             type: "smtp",
-            port: ((0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SMTP_PORT")
-                ? parseInt((0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SMTP_PORT") || "", 10)
+            port: (getSecret("NOTIFICATION_EMAIL_SMTP_PORT")
+                ? parseInt(getSecret("NOTIFICATION_EMAIL_SMTP_PORT") || "", 10)
                 : 587),
-            host: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SMTP_HOST"),
+            host: getSecret("NOTIFICATION_EMAIL_SMTP_HOST"),
             auth: {
-                user: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SMTP_USERNAME"),
-                pass: (0, secrets_1.getSecret)("NOTIFICATION_EMAIL_SMTP_PASSWORD"),
+                user: getSecret("NOTIFICATION_EMAIL_SMTP_USERNAME"),
+                pass: getSecret("NOTIFICATION_EMAIL_SMTP_PASSWORD"),
             },
         });
     }
 }
-if ((0, secrets_1.getSecret)("NOTIFICATION_SMS_46ELKS") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_SMS_CALLR") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_SMS_CLICKATELL") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_SMS_INFOBIP") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_SMS_NEXMO") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_SMS_OVH") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_SMS_PLIVO") ||
-    (0, secrets_1.getSecret)("NOTIFICATION_SMS_TWILIO")) {
+if (getSecret("NOTIFICATION_SMS_46ELKS") ||
+    getSecret("NOTIFICATION_SMS_CALLR") ||
+    getSecret("NOTIFICATION_SMS_CLICKATELL") ||
+    getSecret("NOTIFICATION_SMS_INFOBIP") ||
+    getSecret("NOTIFICATION_SMS_NEXMO") ||
+    getSecret("NOTIFICATION_SMS_OVH") ||
+    getSecret("NOTIFICATION_SMS_PLIVO") ||
+    getSecret("NOTIFICATION_SMS_TWILIO")) {
     channels.sms = {
         providers: [],
-        multiProviderStrategy: (0, secrets_1.getSecret)("NOTIFICATION_SMS_STRATEGY") ||
+        multiProviderStrategy: getSecret("NOTIFICATION_SMS_STRATEGY") ||
             "roundrobin",
     };
-    if ((0, secrets_1.getSecret)("NOTIFICATION_SMS_46ELKS")) {
+    if (getSecret("NOTIFICATION_SMS_46ELKS")) {
         channels.sms.providers.push({
             type: "46elks",
-            apiUsername: (0, secrets_1.getSecret)("NOTIFICATION_SMS_46ELKS_API_USERNAME"),
-            apiPassword: (0, secrets_1.getSecret)("NOTIFICATION_SMS_46ELKS_API_PASSWORD"),
+            apiUsername: getSecret("NOTIFICATION_SMS_46ELKS_API_USERNAME"),
+            apiPassword: getSecret("NOTIFICATION_SMS_46ELKS_API_PASSWORD"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_SMS_CALLR")) {
+    if (getSecret("NOTIFICATION_SMS_CALLR")) {
         channels.sms.providers.push({
             type: "callr",
-            login: (0, secrets_1.getSecret)("NOTIFICATION_SMS_CALLR_LOGIN"),
-            password: (0, secrets_1.getSecret)("NOTIFICATION_SMS_CALLR_PASSWORD"),
+            login: getSecret("NOTIFICATION_SMS_CALLR_LOGIN"),
+            password: getSecret("NOTIFICATION_SMS_CALLR_PASSWORD"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_SMS_CLICKATELL")) {
+    if (getSecret("NOTIFICATION_SMS_CLICKATELL")) {
         channels.sms.providers.push({
             type: "clickatell",
-            apiKey: (0, secrets_1.getSecret)("NOTIFICATION_SMS_CLICKATELL_API_KEY"),
+            apiKey: getSecret("NOTIFICATION_SMS_CLICKATELL_API_KEY"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_SMS_INFOBIP")) {
+    if (getSecret("NOTIFICATION_SMS_INFOBIP")) {
         channels.sms.providers.push({
             type: "infobip",
-            username: (0, secrets_1.getSecret)("NOTIFICATION_SMS_INFOBIP_USERNAME"),
-            password: (0, secrets_1.getSecret)("NOTIFICATION_SMS_INFOBIP_PASSWORD"),
+            username: getSecret("NOTIFICATION_SMS_INFOBIP_USERNAME"),
+            password: getSecret("NOTIFICATION_SMS_INFOBIP_PASSWORD"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_SMS_NEXMO")) {
+    if (getSecret("NOTIFICATION_SMS_NEXMO")) {
         channels.sms.providers.push({
             type: "nexmo",
-            apiKey: (0, secrets_1.getSecret)("NOTIFICATION_SMS_NEXMO_API_KEY"),
-            apiSecret: (0, secrets_1.getSecret)("NOTIFICATION_SMS_NEXMO_API_SECRET"),
+            apiKey: getSecret("NOTIFICATION_SMS_NEXMO_API_KEY"),
+            apiSecret: getSecret("NOTIFICATION_SMS_NEXMO_API_SECRET"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_SMS_OVH")) {
+    if (getSecret("NOTIFICATION_SMS_OVH")) {
         channels.sms.providers.push({
             type: "ovh",
-            appKey: (0, secrets_1.getSecret)("NOTIFICATION_SMS_OVH_APP_KEY"),
-            appSecret: (0, secrets_1.getSecret)("NOTIFICATION_SMS_OVH_APP_SECRET"),
-            consumerKey: (0, secrets_1.getSecret)("NOTIFICATION_SMS_OVH_CONSUMER_KEY"),
-            account: (0, secrets_1.getSecret)("NOTIFICATION_SMS_OVH_ACCOUNT"),
-            host: (0, secrets_1.getSecret)("NOTIFICATION_SMS_OVH_HOST"),
+            appKey: getSecret("NOTIFICATION_SMS_OVH_APP_KEY"),
+            appSecret: getSecret("NOTIFICATION_SMS_OVH_APP_SECRET"),
+            consumerKey: getSecret("NOTIFICATION_SMS_OVH_CONSUMER_KEY"),
+            account: getSecret("NOTIFICATION_SMS_OVH_ACCOUNT"),
+            host: getSecret("NOTIFICATION_SMS_OVH_HOST"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_SMS_PLIVO")) {
+    if (getSecret("NOTIFICATION_SMS_PLIVO")) {
         channels.sms.providers.push({
             type: "plivo",
-            authId: (0, secrets_1.getSecret)("NOTIFICATION_SMS_PLIVO_AUTH_ID"),
-            authToken: (0, secrets_1.getSecret)("NOTIFICATION_SMS_PLIVO_AUTH_TOKEN"),
+            authId: getSecret("NOTIFICATION_SMS_PLIVO_AUTH_ID"),
+            authToken: getSecret("NOTIFICATION_SMS_PLIVO_AUTH_TOKEN"),
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_SMS_TWILIO")) {
+    if (getSecret("NOTIFICATION_SMS_TWILIO")) {
         channels.sms.providers.push({
             type: "twilio",
-            accountSid: (0, secrets_1.getSecret)("NOTIFICATION_SMS_TWILIO_ACCOUNT_SID"),
-            authToken: (0, secrets_1.getSecret)("NOTIFICATION_SMS_TWILIO_AUTH_TOKEN"),
+            accountSid: getSecret("NOTIFICATION_SMS_TWILIO_ACCOUNT_SID"),
+            authToken: getSecret("NOTIFICATION_SMS_TWILIO_AUTH_TOKEN"),
         });
     }
 }
-const slackWebhookUrl = (0, secrets_1.getSecret)("NOTIFICATION_SLACK_WEBHOOK_URL");
-if ((0, secrets_1.getSecret)("NOTIFICATION_SLACK") && slackWebhookUrl) {
+const slackWebhookUrl = getSecret("NOTIFICATION_SLACK_WEBHOOK_URL");
+if (getSecret("NOTIFICATION_SLACK") && slackWebhookUrl) {
     channels.slack = {
         providers: [
             {
@@ -200,23 +191,23 @@ if ((0, secrets_1.getSecret)("NOTIFICATION_SLACK") && slackWebhookUrl) {
                 webhookUrl: slackWebhookUrl,
             },
         ],
-        multiProviderStrategy: (0, secrets_1.getSecret)("NOTIFICATION_SLACK_STRATEGY") ||
+        multiProviderStrategy: getSecret("NOTIFICATION_SLACK_STRATEGY") ||
             "roundrobin",
     };
 }
-const notifier = new notifme_sdk_1.default({
+const notifier = new NotifmeSdk({
     channels,
 });
-const sendNotification = async (message) => {
+export const sendNotification = async (message) => {
     console.log("Sending notification", message);
-    message = (0, environment_1.replaceEnvironmentVariables)(message);
+    message = replaceEnvironmentVariables(message);
     if (channels.email) {
         console.log("Sending email");
         try {
             const result = await notifier.send({
                 email: {
-                    from: ((0, secrets_1.getSecret)("NOTIFICATION_EMAIL_FROM") || (0, secrets_1.getSecret)("NOTIFICATION_EMAIL")),
-                    to: ((0, secrets_1.getSecret)("NOTIFICATION_EMAIL_TO") || (0, secrets_1.getSecret)("NOTIFICATION_EMAIL")),
+                    from: (getSecret("NOTIFICATION_EMAIL_FROM") || getSecret("NOTIFICATION_EMAIL")),
+                    to: (getSecret("NOTIFICATION_EMAIL_TO") || getSecret("NOTIFICATION_EMAIL")),
                     subject: message,
                     html: message,
                 },
@@ -231,11 +222,11 @@ const sendNotification = async (message) => {
     if (channels.sms) {
         console.log("Sending SMS");
         try {
-            const phoneNumbers = (0, secrets_1.getSecret)("NOTIFICATION_SMS_TO")?.split(",") ?? [];
+            const phoneNumbers = getSecret("NOTIFICATION_SMS_TO")?.split(",") ?? [];
             for (const phoneNumber of phoneNumbers) {
                 const result = await notifier.send({
                     sms: {
-                        from: (0, secrets_1.getSecret)("NOTIFICATION_SMS_FROM"),
+                        from: getSecret("NOTIFICATION_SMS_FROM"),
                         to: phoneNumber,
                         text: message,
                     },
@@ -264,10 +255,10 @@ const sendNotification = async (message) => {
         }
         console.log("Finished sending Slack");
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_DISCORD_WEBHOOK_URL")) {
+    if (getSecret("NOTIFICATION_DISCORD_WEBHOOK_URL")) {
         console.log("Sending Discord");
         try {
-            await axios_1.default.post((0, secrets_1.getSecret)("NOTIFICATION_DISCORD_WEBHOOK_URL"), {
+            await axios.post(getSecret("NOTIFICATION_DISCORD_WEBHOOK_URL"), {
                 content: message,
             });
             console.log("Success Discord");
@@ -277,10 +268,10 @@ const sendNotification = async (message) => {
         }
         console.log("Finished sending Discord");
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_GOOGLE_CHAT_WEBHOOK_URL")) {
+    if (getSecret("NOTIFICATION_GOOGLE_CHAT_WEBHOOK_URL")) {
         console.log("Sending Google Chat");
         try {
-            await axios_1.default.post((0, secrets_1.getSecret)("NOTIFICATION_GOOGLE_CHAT_WEBHOOK_URL"), {
+            await axios.post(getSecret("NOTIFICATION_GOOGLE_CHAT_WEBHOOK_URL"), {
                 text: message,
             });
             console.log("Success Google Chat");
@@ -290,17 +281,17 @@ const sendNotification = async (message) => {
         }
         console.log("Finished sending Google Chat");
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_ZULIP_MESSAGE_URL") &&
-        (0, secrets_1.getSecret)("NOTIFICATION_ZULIP_API_EMAIL") &&
-        (0, secrets_1.getSecret)("NOTIFICATION_ZULIP_API_KEY")) {
+    if (getSecret("NOTIFICATION_ZULIP_MESSAGE_URL") &&
+        getSecret("NOTIFICATION_ZULIP_API_EMAIL") &&
+        getSecret("NOTIFICATION_ZULIP_API_KEY")) {
         console.log("Sending Zulip");
         try {
-            await axios_1.default.request({
+            await axios.request({
                 method: "post",
-                url: (0, secrets_1.getSecret)("NOTIFICATION_ZULIP_MESSAGE_URL"),
+                url: getSecret("NOTIFICATION_ZULIP_MESSAGE_URL"),
                 auth: {
-                    username: (0, secrets_1.getSecret)("NOTIFICATION_ZULIP_API_EMAIL"),
-                    password: (0, secrets_1.getSecret)("NOTIFICATION_ZULIP_API_KEY"),
+                    username: getSecret("NOTIFICATION_ZULIP_API_EMAIL"),
+                    password: getSecret("NOTIFICATION_ZULIP_API_KEY"),
                 },
                 params: {
                     content: message,
@@ -313,55 +304,55 @@ const sendNotification = async (message) => {
         }
         console.log("Finished sending Zulip");
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_MASTODON") && (0, secrets_1.getSecret)("NOTIFICATION_MASTODON_INSTANCE_URL") && (0, secrets_1.getSecret)("NOTIFICATION_MASTODON_API_KEY")) {
+    if (getSecret("NOTIFICATION_MASTODON") && getSecret("NOTIFICATION_MASTODON_INSTANCE_URL") && getSecret("NOTIFICATION_MASTODON_API_KEY")) {
         console.log("Sending Mastodon");
-        const instanceUrl = new URL((0, secrets_1.getSecret)("NOTIFICATION_MASTODON_INSTANCE_URL"));
+        const instanceUrl = new URL(getSecret("NOTIFICATION_MASTODON_INSTANCE_URL"));
         const baseUrl = `${instanceUrl.protocol}://${instanceUrl.hostname}/api`;
         let visibility = "public";
-        if ((0, secrets_1.getSecret)("NOTIFICATION_MASTODON_TOOT_VISIBILITY")) {
+        if (getSecret("NOTIFICATION_MASTODON_TOOT_VISIBILITY")) {
             try {
-                visibility = (0, secrets_1.getSecret)("NOTIFICATION_MASTODON_TOOT_VISIBILITY");
+                visibility = getSecret("NOTIFICATION_MASTODON_TOOT_VISIBILITY");
             }
             catch (e) {
-                console.log(`Unsupported Mastodon toot visibility mode: ${(0, secrets_1.getSecret)("NOTIFICATION_MASTODON_TOOT_VISIBILITY")}`);
+                console.log(`Unsupported Mastodon toot visibility mode: ${getSecret("NOTIFICATION_MASTODON_TOOT_VISIBILITY")}`);
             }
         }
-        await axios_1.default.post(`${baseUrl}/v1/statuses`, {
+        await axios.post(`${baseUrl}/v1/statuses`, {
             visibility: visibility,
             status: message,
         }, {
             headers: {
-                "Authorization": `Bearer ${(0, secrets_1.getSecret)("NOTIFICATION_MASTODON_API_KEY")}`
+                "Authorization": `Bearer ${getSecret("NOTIFICATION_MASTODON_API_KEY")}`
             }
         });
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_MISSKEY") && (0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_INSTANCE_URL") && (0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_API_KEY")) {
+    if (getSecret("NOTIFICATION_MISSKEY") && getSecret("NOTIFICATION_MISSKEY_INSTANCE_URL") && getSecret("NOTIFICATION_MISSKEY_API_KEY")) {
         console.log("Sending Misskey");
-        const instanceUrl = new URL((0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_INSTANCE_URL"));
+        const instanceUrl = new URL(getSecret("NOTIFICATION_MISSKEY_INSTANCE_URL"));
         const baseUrl = `${instanceUrl.protocol}://${instanceUrl.hostname}/api`;
-        if ((0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_CHAT") && (0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_CHAT_USER_ID")) {
-            await axios_1.default.post(`${baseUrl}/messaging/messages/create`, {
-                i: (0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_API_KEY"),
-                userId: (0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_CHAT_USER_ID"),
+        if (getSecret("NOTIFICATION_MISSKEY_CHAT") && getSecret("NOTIFICATION_MISSKEY_CHAT_USER_ID")) {
+            await axios.post(`${baseUrl}/messaging/messages/create`, {
+                i: getSecret("NOTIFICATION_MISSKEY_API_KEY"),
+                userId: getSecret("NOTIFICATION_MISSKEY_CHAT_USER_ID"),
                 text: message,
             });
         }
-        if ((0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_NOTE")) {
+        if (getSecret("NOTIFICATION_MISSKEY_NOTE")) {
             let visibility = "public";
             let visibleUserIds;
-            if ((0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_NOTE_VISIBILITY")) {
+            if (getSecret("NOTIFICATION_MISSKEY_NOTE_VISIBILITY")) {
                 try {
-                    visibility = (0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_NOTE_VISIBILITY");
+                    visibility = getSecret("NOTIFICATION_MISSKEY_NOTE_VISIBILITY");
                 }
                 catch (e) {
-                    console.log(`Unsupported Misskey note visibility mode: ${(0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_NOTE_VISIBILITY")}`);
+                    console.log(`Unsupported Misskey note visibility mode: ${getSecret("NOTIFICATION_MISSKEY_NOTE_VISIBILITY")}`);
                 }
             }
             if (visibility == "specified") {
-                visibleUserIds = ((0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_NOTE_VISIBLE_USER_IDS") || "").split(",");
+                visibleUserIds = (getSecret("NOTIFICATION_MISSKEY_NOTE_VISIBLE_USER_IDS") || "").split(",");
             }
-            await axios_1.default.post(`${baseUrl}/notes/create`, {
-                i: (0, secrets_1.getSecret)("NOTIFICATION_MISSKEY_API_KEY"),
+            await axios.post(`${baseUrl}/notes/create`, {
+                i: getSecret("NOTIFICATION_MISSKEY_API_KEY"),
                 visibility: visibility,
                 visibleUserIds: visibleUserIds,
                 text: message,
@@ -369,16 +360,16 @@ const sendNotification = async (message) => {
         }
         console.log("Success Misskey");
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_TELEGRAM") && (0, secrets_1.getSecret)("NOTIFICATION_TELEGRAM_BOT_KEY")) {
+    if (getSecret("NOTIFICATION_TELEGRAM") && getSecret("NOTIFICATION_TELEGRAM_BOT_KEY")) {
         console.log("Sending Telegram");
         try {
-            const chatIds = (0, secrets_1.getSecret)("NOTIFICATION_TELEGRAM_CHAT_ID")?.split(",") ?? [];
+            const chatIds = getSecret("NOTIFICATION_TELEGRAM_CHAT_ID")?.split(",") ?? [];
             for (const chatId of chatIds) {
-                await axios_1.default.post(`https://api.telegram.org/bot${(0, secrets_1.getSecret)("NOTIFICATION_TELEGRAM_BOT_KEY")}/sendMessage`, {
+                await axios.post(`https://api.telegram.org/bot${getSecret("NOTIFICATION_TELEGRAM_BOT_KEY")}/sendMessage`, {
                     parse_mode: "HTML",
                     disable_web_page_preview: true,
                     chat_id: chatId.trim(),
-                    text: (0, exports.formatTelegramHtmlMessage)(message),
+                    text: formatTelegramHtmlMessage(message),
                 });
             }
             console.log("Success Telegram");
@@ -388,10 +379,10 @@ const sendNotification = async (message) => {
         }
         console.log("Finished sending Telegram");
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_LARK")) {
+    if (getSecret("NOTIFICATION_LARK")) {
         console.log("Sending Lark");
         try {
-            await axios_1.default.post(`${(0, secrets_1.getSecret)("NOTIFICATION_LARK_BOT_WEBHOOK")}`, {
+            await axios.post(`${getSecret("NOTIFICATION_LARK_BOT_WEBHOOK")}`, {
                 "msg_type": "interactive",
                 "card": {
                     "config": {
@@ -412,10 +403,10 @@ const sendNotification = async (message) => {
         }
         console.log("Finished sending Lark");
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_TEAMS")) {
+    if (getSecret("NOTIFICATION_TEAMS")) {
         console.log("Sending Microsoft Teams");
         try {
-            await axios_1.default.post(`${(0, secrets_1.getSecret)("NOTIFICATION_TEAMS_WEBHOOK_URL")}`, (0, exports.createTeamsAdaptiveCardPayload)(message));
+            await axios.post(`${getSecret("NOTIFICATION_TEAMS_WEBHOOK_URL")}`, createTeamsAdaptiveCardPayload(message));
             console.log("Success Microsoft Teams");
         }
         catch (error) {
@@ -423,10 +414,10 @@ const sendNotification = async (message) => {
         }
         console.log("Finished sending Microsoft Teams");
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_CUSTOM_WEBHOOK")) {
+    if (getSecret("NOTIFICATION_CUSTOM_WEBHOOK")) {
         console.log("Sending Webhook");
         try {
-            await axios_1.default.post(`${(0, secrets_1.getSecret)("NOTIFICATION_CUSTOM_WEBHOOK_URL")}`, {
+            await axios.post(`${getSecret("NOTIFICATION_CUSTOM_WEBHOOK_URL")}`, {
                 data: {
                     message: JSON.stringify(message),
                 }
@@ -442,13 +433,13 @@ const sendNotification = async (message) => {
         }
         console.log("Finished sending Webhook");
     }
-    if ((0, secrets_1.getSecret)("NOTIFICATION_GOTIFY")) {
+    if (getSecret("NOTIFICATION_GOTIFY")) {
         console.log("Sending Gotify");
         try {
-            await axios_1.default.post(`${(0, secrets_1.getSecret)("NOTIFICATION_GOTIFY_URL")}/message?token=${(0, secrets_1.getSecret)("NOTIFICATION_GOTIFY_TOKEN")}`, {
+            await axios.post(`${getSecret("NOTIFICATION_GOTIFY_URL")}/message?token=${getSecret("NOTIFICATION_GOTIFY_TOKEN")}`, {
                 message: message,
-                title: ((0, secrets_1.getSecret)("NOTIFICATION_GOTIFY_TITLE") || "Upptime"),
-                priority: ((0, secrets_1.getSecret)("NOTIFICATION_GOTIFY_PRIORITY") || 5),
+                title: (getSecret("NOTIFICATION_GOTIFY_TITLE") || "Upptime"),
+                priority: (getSecret("NOTIFICATION_GOTIFY_PRIORITY") || 5),
             });
             console.log("Success Gotify");
         }
@@ -458,5 +449,4 @@ const sendNotification = async (message) => {
         console.log("Finished sending Gotify");
     }
 };
-exports.sendNotification = sendNotification;
 //# sourceMappingURL=notifme.js.map

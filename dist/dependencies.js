@@ -1,12 +1,9 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateDependencies = void 0;
-const fs_extra_1 = require("fs-extra");
-const path_1 = require("path");
-const config_1 = require("./helpers/config");
-const git_1 = require("./helpers/git");
-const github_1 = require("./helpers/github");
-const secrets_1 = require("./helpers/secrets");
+import { ensureDir, readdir, readFile, writeFile } from "fs-extra";
+import { join } from "path";
+import { getConfig } from "./helpers/config";
+import { commit, push } from "./helpers/git";
+import { getOctokit } from "./helpers/github";
+import { getOwnerRepo } from "./helpers/secrets";
 const getLatestPackageVersion = async (octokit, pkgName, currentVersion) => {
     const [owner, repo] = pkgName.split("/");
     try {
@@ -37,19 +34,19 @@ const getLatestPackageVersion = async (octokit, pkgName, currentVersion) => {
     }
     return currentVersion;
 };
-const updateDependencies = async () => {
-    const [owner, repo] = (0, secrets_1.getOwnerRepo)();
+export const updateDependencies = async () => {
+    const [owner, repo] = getOwnerRepo();
     if (`${owner}/${repo}` !== "upptime/upptime")
         return;
-    const config = await (0, config_1.getConfig)();
+    const config = await getConfig();
     const commitMessages = config.commitMessages || {};
-    const octokit = await (0, github_1.getOctokit)();
+    const octokit = await getOctokit();
     let changes = 0;
-    await (0, fs_extra_1.ensureDir)((0, path_1.join)(".", ".github", "workflows"));
-    const workflows = (await (0, fs_extra_1.readdir)((0, path_1.join)(".", ".github", "workflows"))).filter((file) => file.endsWith(".yml") || file.endsWith(".yaml"));
+    await ensureDir(join(".", ".github", "workflows"));
+    const workflows = (await readdir(join(".", ".github", "workflows"))).filter((file) => file.endsWith(".yml") || file.endsWith(".yaml"));
     const uses = {};
     for await (const workflow of workflows) {
-        const contents = await (0, fs_extra_1.readFile)((0, path_1.join)(".", ".github", "workflows", workflow), "utf8");
+        const contents = await readFile(join(".", ".github", "workflows", workflow), "utf8");
         contents
             .split("\n")
             .filter((line) => line.includes("uses:"))
@@ -65,15 +62,15 @@ const updateDependencies = async () => {
     for await (const pkgOldVersion of Object.keys(uses)) {
         const pkgName = pkgOldVersion.split("@")[0];
         for await (const workflow of workflows) {
-            let contents = await (0, fs_extra_1.readFile)((0, path_1.join)(".", ".github", "workflows", workflow), "utf8");
+            let contents = await readFile(join(".", ".github", "workflows", workflow), "utf8");
             contents = contents.replaceAll(pkgOldVersion, uses[pkgOldVersion]);
-            await (0, fs_extra_1.writeFile)((0, path_1.join)(".", ".github", "workflows", workflow), contents);
+            await writeFile(join(".", ".github", "workflows", workflow), contents);
         }
         if (pkgOldVersion.split("@")[1] !== uses[pkgOldVersion].split("@")[1])
             changes++;
-        (0, git_1.commit)(`:arrow_up: Bump ${pkgName} from ${pkgOldVersion.split("@")[1]} to ${uses[pkgOldVersion].split("@")[1]}\n\nBumps [${pkgName}](https://github.com/${pkgName}) from ${pkgOldVersion.split("@")[1]} to ${uses[pkgOldVersion].split("@")[1]}.\n- [Release notes](https://github.com/${pkgName}/releases)\n- [Commits](https://github.com/${pkgName}@${pkgOldVersion.split("@")[1]}...${uses[pkgOldVersion].split("@")[1]})${commitMessages.signoff ? "" : "\n\nSigned-off-by: Anand Chowdhary <github@anandchowdhary.com>"}`, commitMessages.commitAuthorName, commitMessages.commitAuthorEmail, commitMessages.signoff);
+        commit(`:arrow_up: Bump ${pkgName} from ${pkgOldVersion.split("@")[1]} to ${uses[pkgOldVersion].split("@")[1]}\n\nBumps [${pkgName}](https://github.com/${pkgName}) from ${pkgOldVersion.split("@")[1]} to ${uses[pkgOldVersion].split("@")[1]}.\n- [Release notes](https://github.com/${pkgName}/releases)\n- [Commits](https://github.com/${pkgName}@${pkgOldVersion.split("@")[1]}...${uses[pkgOldVersion].split("@")[1]})${commitMessages.signoff ? "" : "\n\nSigned-off-by: Anand Chowdhary <github@anandchowdhary.com>"}`, commitMessages.commitAuthorName, commitMessages.commitAuthorEmail, commitMessages.signoff);
     }
-    (0, git_1.push)();
+    push();
     if (changes) {
         const contents = await octokit.repos.getContent({ owner, repo, path: "README.md" });
         await octokit.repos.createOrUpdateFileContents({
@@ -86,5 +83,4 @@ const updateDependencies = async () => {
         });
     }
 };
-exports.updateDependencies = updateDependencies;
 //# sourceMappingURL=dependencies.js.map

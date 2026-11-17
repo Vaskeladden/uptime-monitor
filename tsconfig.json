@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "target": "esnext",
-    "module": "commonjs",
+    "module": "preserve",
+    "rootDir": "src",
+    "types": ["node", "jest"],
     "lib": ["dom", "esnext"],
     "strict": true,
     "sourceMap": true,

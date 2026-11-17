@@ -1,16 +1,10 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUptimePercentForSite = void 0;
-const dayjs_1 = __importDefault(require("dayjs"));
-const fs_extra_1 = require("fs-extra");
-const js_yaml_1 = require("js-yaml");
-const path_1 = require("path");
-const github_1 = require("./github");
-const overlap_1 = require("./overlap");
-const secrets_1 = require("./secrets");
+import dayjs from "dayjs";
+import { readFile } from "fs-extra";
+import { load } from "js-yaml";
+import { join } from "path";
+import { getOctokit } from "./github";
+import { checkOverlap } from "./overlap";
+import { getOwnerRepo } from "./secrets";
 const mergeOverlappingDowntimeRanges = (ranges) => {
     const sortedRanges = ranges
         .filter(({ start, end }) => end > start)
@@ -31,8 +25,8 @@ const mergeOverlappingDowntimeRanges = (ranges) => {
  * @param slug - Slug of the site
  */
 const getDowntimeSecondsForSite = async (slug) => {
-    const [owner, repo] = (0, secrets_1.getOwnerRepo)();
-    const octokit = await (0, github_1.getOctokit)();
+    const [owner, repo] = getOwnerRepo();
+    const octokit = await getOctokit();
     let day = 0;
     let week = 0;
     let month = 0;
@@ -59,8 +53,8 @@ const getDowntimeSecondsForSite = async (slug) => {
         const issueDowntime = downtimeRange.end - downtimeRange.start;
         all += issueDowntime;
         [...Array(365).keys()].forEach((daysAgo) => {
-            const date = (0, dayjs_1.default)().subtract(daysAgo, "day");
-            const overlap = (0, overlap_1.checkOverlap)(downtimeRange, {
+            const date = dayjs().subtract(daysAgo, "day");
+            const overlap = checkOverlap(downtimeRange, {
                 start: date.startOf("day").toDate().getTime(),
                 end: date.endOf("day").toDate().getTime(),
             });
@@ -70,21 +64,21 @@ const getDowntimeSecondsForSite = async (slug) => {
                 dailyMinutesDown[date.format("YYYY-MM-DD")] += Math.round(overlap / 60000);
             }
         });
-        const end = (0, dayjs_1.default)().toDate().getTime();
-        day += (0, overlap_1.checkOverlap)(downtimeRange, {
-            start: (0, dayjs_1.default)().subtract(1, "day").toDate().getTime(),
+        const end = dayjs().toDate().getTime();
+        day += checkOverlap(downtimeRange, {
+            start: dayjs().subtract(1, "day").toDate().getTime(),
             end,
         });
-        week += (0, overlap_1.checkOverlap)(downtimeRange, {
-            start: (0, dayjs_1.default)().subtract(1, "week").toDate().getTime(),
+        week += checkOverlap(downtimeRange, {
+            start: dayjs().subtract(1, "week").toDate().getTime(),
             end,
         });
-        month += (0, overlap_1.checkOverlap)(downtimeRange, {
-            start: (0, dayjs_1.default)().subtract(1, "month").toDate().getTime(),
+        month += checkOverlap(downtimeRange, {
+            start: dayjs().subtract(1, "month").toDate().getTime(),
             end,
         });
-        year += (0, overlap_1.checkOverlap)(downtimeRange, {
-            start: (0, dayjs_1.default)().subtract(1, "year").toDate().getTime(),
+        year += checkOverlap(downtimeRange, {
+            start: dayjs().subtract(1, "year").toDate().getTime(),
             end,
         });
     });
@@ -102,8 +96,8 @@ const getDowntimeSecondsForSite = async (slug) => {
  * @returns Percent string, e.g., 94.43%
  * @param slug - Slug of the site
  */
-const getUptimePercentForSite = async (slug) => {
-    const site = (0, js_yaml_1.load)((await (0, fs_extra_1.readFile)((0, path_1.join)(".", "history", `${slug}.yml`), "utf8"))
+export const getUptimePercentForSite = async (slug) => {
+    const site = load((await readFile(join(".", "history", `${slug}.yml`), "utf8"))
         .split("\n")
         .map((line) => (line.startsWith("- ") ? line.replace("- ", "") : line))
         .join("\n"));
@@ -123,5 +117,4 @@ const getUptimePercentForSite = async (slug) => {
         dailyMinutesDown: downtimeSeconds.dailyMinutesDown,
     };
 };
-exports.getUptimePercentForSite = getUptimePercentForSite;
 //# sourceMappingURL=calculate-uptime.js.map

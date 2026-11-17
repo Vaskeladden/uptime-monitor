@@ -1,9 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getOctokit = exports.retryTransientGitHubRequest = void 0;
-const rest_1 = require("@octokit/rest");
-const config_1 = require("./config");
-const secrets_1 = require("./secrets");
+import { Octokit } from "@octokit/rest";
+import { getConfig } from "./config";
+import { getSecret } from "./secrets";
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const getGitHubErrorStatus = (error) => {
     if (typeof error !== "object" || error === null)
@@ -14,7 +11,7 @@ const getGitHubErrorStatus = (error) => {
     const responseStatus = error.response?.status;
     return typeof responseStatus === "number" ? responseStatus : undefined;
 };
-const retryTransientGitHubRequest = async (request, options = {}) => {
+export const retryTransientGitHubRequest = async (request, options = {}) => {
     const maxAttempts = options.maxAttempts ?? 3;
     const initialDelayMs = options.initialDelayMs ?? 1000;
     const waitForRetry = options.wait ?? wait;
@@ -35,13 +32,11 @@ const retryTransientGitHubRequest = async (request, options = {}) => {
     }
     throw new Error("GitHub API retry attempts exhausted");
 };
-exports.retryTransientGitHubRequest = retryTransientGitHubRequest;
-const getOctokit = async () => {
-    const config = await (0, config_1.getConfig)();
-    return new rest_1.Octokit({
-        auth: config.PAT || (0, secrets_1.getSecret)("GH_PAT") || (0, secrets_1.getSecret)("GITHUB_TOKEN"),
-        userAgent: config["user-agent"] || (0, secrets_1.getSecret)("USER_AGENT") || "upptime",
+export const getOctokit = async () => {
+    const config = await getConfig();
+    return new Octokit({
+        auth: config.PAT || getSecret("GH_PAT") || getSecret("GITHUB_TOKEN"),
+        userAgent: config["user-agent"] || getSecret("USER_AGENT") || "upptime",
     });
 };
-exports.getOctokit = getOctokit;
 //# sourceMappingURL=github.js.map

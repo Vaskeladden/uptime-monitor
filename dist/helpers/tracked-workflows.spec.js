@@ -1,44 +1,6 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
-const js_yaml_1 = __importDefault(require("js-yaml"));
+import fs from "fs";
+import path from "path";
+import yaml from "js-yaml";
 jest.mock("./config", () => ({
     getConfig: jest.fn().mockResolvedValue({
         sites: [],
@@ -60,11 +22,11 @@ describe("owned Status workflow generation", () => {
     });
     afterEach(() => { delete process.env.UPTIME_MONITOR_REF; });
     it("admits only the declared generator workflow", () => {
-        const directory = path_1.default.resolve(__dirname, "../../.github/workflows");
-        expect(fs_1.default.readdirSync(directory).filter(name => /\.ya?ml$/i.test(name)).sort())
+        const directory = path.resolve(__dirname, "../../.github/workflows");
+        expect(fs.readdirSync(directory).filter(name => /\.ya?ml$/i.test(name)).sort())
             .toEqual(["generator-ci.yml"]);
-        const source = fs_1.default.readFileSync(path_1.default.join(directory, "generator-ci.yml"), "utf8");
-        const workflow = js_yaml_1.default.load(source);
+        const source = fs.readFileSync(path.join(directory, "generator-ci.yml"), "utf8");
+        const workflow = yaml.load(source);
         expect(workflow.on).toEqual({ pull_request: null, push: { branches: ["master"] } });
         expect(workflow.permissions).toEqual({ contents: "read" });
         expect(source).not.toMatch(/secrets\s*(?:\.|\[)/i);
@@ -79,8 +41,8 @@ describe("owned Status workflow generation", () => {
         });
     });
     it("emits the uptime declaration beside the workflow it owns", async () => {
-        const { uptimeCiWorkflow } = await Promise.resolve().then(() => __importStar(require("./workflows")));
-        const workflow = js_yaml_1.default.load(await uptimeCiWorkflow());
+        const { uptimeCiWorkflow } = await import("./workflows");
+        const workflow = yaml.load(await uptimeCiWorkflow());
         expect(JSON.parse(workflow.env.AUTOMATION_CONTRACT)).toMatchObject({
             id: "gha.status.uptime-probe", owner: "platform",
             architecture: { recipe: "github-workflow", disposition: "exception" },
@@ -88,8 +50,8 @@ describe("owned Status workflow generation", () => {
         });
     });
     it("keeps tracked dispatch failure connected to both direct graph fallback steps", async () => {
-        const { setupCiWorkflow } = await Promise.resolve().then(() => __importStar(require("./workflows")));
-        const workflow = js_yaml_1.default.load(await setupCiWorkflow());
+        const { setupCiWorkflow } = await import("./workflows");
+        const workflow = yaml.load(await setupCiWorkflow());
         const steps = workflow.jobs.release.steps;
         const dispatch = steps.find((step) => step.id === "dispatch_graphs");
         expect(dispatch).toMatchObject({
@@ -108,7 +70,7 @@ describe("owned Status workflow generation", () => {
         expect(workflow.concurrency).toMatchObject({ "cancel-in-progress": false, queue: "max" });
     });
     it("regenerates all workflows deterministically on the same immutable owned source", async () => {
-        const helpers = await Promise.resolve().then(() => __importStar(require("./workflows")));
+        const helpers = await import("./workflows");
         const generators = [helpers.graphsCiWorkflow, helpers.responseTimeCiWorkflow, helpers.setupCiWorkflow,
             helpers.siteCiWorkflow, helpers.summaryCiWorkflow, helpers.updateTemplateCiWorkflow,
             helpers.updatesCiWorkflow, helpers.uptimeCiWorkflow];
@@ -118,13 +80,13 @@ describe("owned Status workflow generation", () => {
             expect(text).not.toContain("benc-uk/workflow-dispatch");
             expect(text).not.toContain("uses: upptime/uptime-monitor@");
             expect(text).not.toContain("uptime-monitor@master");
-            const workflow = js_yaml_1.default.load(text);
+            const workflow = yaml.load(text);
             expect(workflow.jobs.release.env.UPTIME_MONITOR_REF).toBe(ref);
         }
     });
     it("keeps adversarial site values out of generated workflow structure", async () => {
-        const { getConfig } = await Promise.resolve().then(() => __importStar(require("./config")));
-        const helpers = await Promise.resolve().then(() => __importStar(require("./workflows")));
+        const { getConfig } = await import("./config");
+        const helpers = await import("./workflows");
         const generators = [helpers.graphsCiWorkflow, helpers.responseTimeCiWorkflow, helpers.setupCiWorkflow,
             helpers.siteCiWorkflow, helpers.summaryCiWorkflow, helpers.updateTemplateCiWorkflow,
             helpers.updatesCiWorkflow, helpers.uptimeCiWorkflow];
@@ -134,8 +96,8 @@ describe("owned Status workflow generation", () => {
             workflowSchedule: {}, commitMessages: {}, "status-website": {},
         });
         for (const [index, generate] of generators.entries()) {
-            const workflow = js_yaml_1.default.load(await generate());
-            expect(workflow).toEqual(js_yaml_1.default.load(baseline[index]));
+            const workflow = yaml.load(await generate());
+            expect(workflow).toEqual(yaml.load(baseline[index]));
             for (const job of Object.values(workflow.jobs)) {
                 for (const step of job.steps)
                     expect(step.run || "").not.toContain("INJECTED_SECRET");
@@ -147,7 +109,7 @@ describe("owned Status workflow generation", () => {
             delete process.env.UPTIME_MONITOR_REF;
         else
             process.env.UPTIME_MONITOR_REF = value;
-        const { setupCiWorkflow } = await Promise.resolve().then(() => __importStar(require("./workflows")));
+        const { setupCiWorkflow } = await import("./workflows");
         await expect(setupCiWorkflow()).rejects.toThrow("immutable");
     });
 });

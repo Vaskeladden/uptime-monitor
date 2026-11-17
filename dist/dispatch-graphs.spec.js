@@ -1,8 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const child_process_1 = require("child_process");
-const fs_1 = require("fs");
-const dispatch_graphs_1 = require("./dispatch-graphs");
+import { execFileSync } from "child_process";
+import { existsSync } from "fs";
+import { dispatchGraphs } from "./dispatch-graphs";
 jest.mock("child_process", () => ({ execFileSync: jest.fn() }));
 jest.mock("@actions/core", () => ({ setSecret: jest.fn() }));
 jest.mock("./helpers/dispatch-sdk-pin", () => {
@@ -32,7 +30,7 @@ describe("tracked graph dispatcher", () => {
             ACTIONS_RESULTS_URL: "https://results.example.test",
             DISPATCH_JOB_CONTEXT: JSON.stringify({ check_run_id: 42, workflow_ref: "workflow", workflow_sha: "b".repeat(40) }),
         };
-        child_process_1.execFileSync.mockReset().mockReturnValue(Buffer.alloc(0));
+        execFileSync.mockReset().mockReturnValue(Buffer.alloc(0));
         global.fetch = jest.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => Buffer.from(fixture) });
     });
     afterEach(() => {
@@ -41,9 +39,9 @@ describe("tracked graph dispatcher", () => {
     });
     it("registers before dispatch, selects the current ref, confines credentials and removes the private package", async () => {
         process.env.GITHUB_REF_NAME = "custom-status-branch";
-        await (0, dispatch_graphs_1.dispatchGraphs)("private-pat");
+        await dispatchGraphs("private-pat");
         expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining(`dispatch.cjs?ref=${"a".repeat(40)}`), expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer private-pat" }), redirect: "error" }));
-        const calls = child_process_1.execFileSync.mock.calls;
+        const calls = execFileSync.mock.calls;
         expect(calls).toHaveLength(4);
         expect(calls[0][1]).toEqual(["ci", "--ignore-scripts", "--omit=dev", "--no-audit", "--no-fund"]);
         expect(calls[1][1][0]).toBe("-e");
@@ -58,7 +56,7 @@ describe("tracked graph dispatcher", () => {
         expect(calls[1][2].env.GH_PAT).toBeUndefined();
         expect(calls[1][2].env.GH_TOKEN).toBeUndefined();
         expect(calls[1][2].env.ACTIONS_RUNTIME_TOKEN).toBe("runtime-token");
-        expect((0, fs_1.existsSync)(calls[0][2].cwd)).toBe(false);
+        expect(existsSync(calls[0][2].cwd)).toBe(false);
     });
     it.each(["source denied", "digest mismatch", "runtime missing", "pull_request", "pull_request_target"])("never launches on %s", async (cause) => {
         if (cause === "source denied")
@@ -69,19 +67,19 @@ describe("tracked graph dispatcher", () => {
             delete process.env.ACTIONS_RUNTIME_TOKEN;
         if (cause.startsWith("pull_request"))
             process.env.GITHUB_EVENT_NAME = cause;
-        await expect((0, dispatch_graphs_1.dispatchGraphs)("private-pat")).rejects.toThrow("Tracked graph dispatch failed");
-        expect(child_process_1.execFileSync).not.toHaveBeenCalled();
+        await expect(dispatchGraphs("private-pat")).rejects.toThrow("Tracked graph dispatch failed");
+        expect(execFileSync).not.toHaveBeenCalled();
     });
     it.each([0, 1, 2, 3])("propagates failure at child stage %s without retry or leaking exception details", async (failedStage) => {
-        const runner = child_process_1.execFileSync;
+        const runner = execFileSync;
         runner.mockImplementation(() => {
             if (runner.mock.calls.length === failedStage + 1)
                 throw new Error("provider response includes private-pat");
             return Buffer.alloc(0);
         });
-        await expect((0, dispatch_graphs_1.dispatchGraphs)("private-pat")).rejects.toThrow(/^Tracked graph dispatch failed; inspect its sender receipts$/);
+        await expect(dispatchGraphs("private-pat")).rejects.toThrow(/^Tracked graph dispatch failed; inspect its sender receipts$/);
         expect(runner).toHaveBeenCalledTimes(failedStage + 1);
-        expect((0, fs_1.existsSync)(runner.mock.calls[0][2].cwd)).toBe(false);
+        expect(existsSync(runner.mock.calls[0][2].cwd)).toBe(false);
     });
 });
 //# sourceMappingURL=dispatch-graphs.spec.js.map

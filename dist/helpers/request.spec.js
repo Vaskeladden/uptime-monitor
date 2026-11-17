@@ -1,7 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const http_1 = require("http");
-const request_1 = require("./request");
+import { createServer } from "http";
+import { curl } from "./request";
 describe("curl request helper", () => {
     jest.setTimeout(10000);
     let server;
@@ -16,7 +14,7 @@ describe("curl request helper", () => {
         });
     }));
     const listenWithHeadResponse = () => new Promise((resolve) => {
-        server = (0, http_1.createServer)((req, res) => {
+        server = createServer((req, res) => {
             if (req.method === "HEAD") {
                 res.writeHead(200, {
                     "Content-Length": "12345",
@@ -37,7 +35,7 @@ describe("curl request helper", () => {
     });
     it("treats HEAD as header-only even when Content-Length is present", async () => {
         const url = await listenWithHeadResponse();
-        const result = await (0, request_1.curl)({
+        const result = await curl({
             name: "Large file",
             url,
             method: "HEAD",

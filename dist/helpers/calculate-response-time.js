@@ -1,13 +1,7 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getResponseTimeForSite = void 0;
-const dayjs_1 = __importDefault(require("dayjs"));
-const config_1 = require("./config");
-const github_1 = require("./github");
-const secrets_1 = require("./secrets");
+import dayjs from "dayjs";
+import { getConfig } from "./config";
+import { getOctokit } from "./github";
+import { getOwnerRepo } from "./secrets";
 /** Calculate the average of some numbers */
 const avg = (array) => (array.length ? array.reduce((a, b) => a + b) / array.length : 0);
 /** Get commits for a history file */
@@ -24,14 +18,14 @@ const getHistoryItems = async (octokit, owner, repo, slug, page) => {
     if (!data[0])
         return [];
     if (data.length === 100 &&
-        !(0, dayjs_1.default)((data[0].commit.author || {}).date).isBefore((0, dayjs_1.default)().subtract(1, "year")))
+        !dayjs((data[0].commit.author || {}).date).isBefore(dayjs().subtract(1, "year")))
         data.push(...(await getHistoryItems(octokit, owner, repo, slug, page + 1)));
     return data;
 };
-const getResponseTimeForSite = async (slug) => {
-    const [owner, repo] = (0, secrets_1.getOwnerRepo)();
-    const octokit = await (0, github_1.getOctokit)();
-    const config = await (0, config_1.getConfig)();
+export const getResponseTimeForSite = async (slug) => {
+    const [owner, repo] = getOwnerRepo();
+    const octokit = await getOctokit();
+    const config = await getConfig();
     const data = await getHistoryItems(octokit, owner, repo, slug, 1);
     const responseTimes = data
         .filter((item) => item.commit.message.includes(" in ") &&
@@ -48,16 +42,16 @@ const getResponseTimeForSite = async (slug) => {
     ])
         .filter((item) => item[1] && !isNaN(item[1]));
     const daySum = responseTimes
-        .filter((i) => (0, dayjs_1.default)(i[0]).isAfter((0, dayjs_1.default)().subtract(1, "day")))
+        .filter((i) => dayjs(i[0]).isAfter(dayjs().subtract(1, "day")))
         .map((i) => i[1]);
     const weekSum = responseTimes
-        .filter((i) => (0, dayjs_1.default)(i[0]).isAfter((0, dayjs_1.default)().subtract(1, "week")))
+        .filter((i) => dayjs(i[0]).isAfter(dayjs().subtract(1, "week")))
         .map((i) => i[1]);
     const monthSum = responseTimes
-        .filter((i) => (0, dayjs_1.default)(i[0]).isAfter((0, dayjs_1.default)().subtract(1, "month")))
+        .filter((i) => dayjs(i[0]).isAfter(dayjs().subtract(1, "month")))
         .map((i) => i[1]);
     const yearSum = responseTimes
-        .filter((i) => (0, dayjs_1.default)(i[0]).isAfter((0, dayjs_1.default)().subtract(1, "year")))
+        .filter((i) => dayjs(i[0]).isAfter(dayjs().subtract(1, "year")))
         .map((i) => i[1]);
     const allSum = responseTimes.map((i) => i[1]);
     console.log("weekSum", weekSum, avg(weekSum));
@@ -78,5 +72,4 @@ const getResponseTimeForSite = async (slug) => {
         currentStatus,
     };
 };
-exports.getResponseTimeForSite = getResponseTimeForSite;
 //# sourceMappingURL=calculate-response-time.js.map

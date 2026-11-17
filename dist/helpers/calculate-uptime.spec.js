@@ -1,8 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const fs_1 = require("fs");
-const os_1 = require("os");
-const path_1 = require("path");
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 jest.mock("./github", () => ({
     getOctokit: jest.fn(),
 }));
@@ -21,9 +19,9 @@ describe("calculate uptime", () => {
     let cwd;
     beforeEach(() => {
         jest.useFakeTimers().setSystemTime(new Date("2026-03-27T00:00:00Z"));
-        cwd = (0, fs_1.mkdtempSync)((0, path_1.join)((0, os_1.tmpdir)(), "upptime-uptime-test-"));
-        (0, fs_1.mkdirSync)((0, path_1.join)(cwd, "history"));
-        (0, fs_1.writeFileSync)((0, path_1.join)(cwd, "history", "example.yml"), [
+        cwd = mkdtempSync(join(tmpdir(), "upptime-uptime-test-"));
+        mkdirSync(join(cwd, "history"));
+        writeFileSync(join(cwd, "history", "example.yml"), [
             "url: https://example.com",
             "status: up",
             "code: 200",
@@ -36,7 +34,7 @@ describe("calculate uptime", () => {
     });
     afterEach(() => {
         process.chdir(originalCwd);
-        (0, fs_1.rmSync)(cwd, { recursive: true, force: true });
+        rmSync(cwd, { recursive: true, force: true });
         jest.useRealTimers();
         jest.clearAllMocks();
     });

@@ -1,29 +1,23 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.update = void 0;
-const dayjs_1 = __importDefault(require("dayjs"));
-const dns_1 = __importDefault(require("dns"));
-const fs_extra_1 = require("fs-extra");
-const globalping_1 = require("globalping");
-const js_yaml_1 = require("js-yaml");
-const net_1 = require("net");
-const path_1 = require("path");
-const ws_1 = __importDefault(require("ws"));
-const config_1 = require("./helpers/config");
-const environment_1 = require("./helpers/environment");
-const git_1 = require("./helpers/git");
-const github_1 = require("./helpers/github");
-const init_check_1 = require("./helpers/init-check");
-const notifme_1 = require("./helpers/notifme");
-const ping_1 = require("./helpers/ping");
-const request_1 = require("./helpers/request");
-const secrets_1 = require("./helpers/secrets");
-const slug_1 = require("./helpers/slug");
-const ssl_date_checker_1 = require("./ssl-date-checker");
-const summary_1 = require("./summary");
+import dayjs from "dayjs";
+import dns from "dns";
+import { mkdirp, readFile, writeFile } from "fs-extra";
+import { Globalping, HttpProtocol, HttpRequestMethod, IpVersion, } from "globalping";
+import { load } from "js-yaml";
+import { isIP, isIPv6 } from "net";
+import { join } from "path";
+import WebSocket from "ws";
+import { getConfig } from "./helpers/config";
+import { replaceEnvironmentVariables } from "./helpers/environment";
+import { commit, lastCommit, push } from "./helpers/git";
+import { getOctokit, retryTransientGitHubRequest } from "./helpers/github";
+import { shouldContinue } from "./helpers/init-check";
+import { sendNotification } from "./helpers/notifme";
+import { ping } from "./helpers/ping";
+import { curl } from "./helpers/request";
+import { getOwnerRepo, getSecret } from "./helpers/secrets";
+import { getSiteSlug } from "./helpers/slug";
+import { checker } from "./ssl-date-checker";
+import { generateSummary } from "./summary";
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * Get a human-readable time difference between from now
@@ -31,12 +25,12 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * @returns Human-readable time difference, e.g. "2 days, 3 hours, 5 minutes"
  */
 function getHumanReadableTimeDifference(startTime) {
-    const diffDays = (0, dayjs_1.default)().diff((0, dayjs_1.default)(startTime), "day");
-    const diffHours = (0, dayjs_1.default)().subtract(diffDays, "day").diff((0, dayjs_1.default)(startTime), "hour");
-    const diffMinutes = (0, dayjs_1.default)()
+    const diffDays = dayjs().diff(dayjs(startTime), "day");
+    const diffHours = dayjs().subtract(diffDays, "day").diff(dayjs(startTime), "hour");
+    const diffMinutes = dayjs()
         .subtract(diffDays, "day")
         .subtract(diffHours, "hour")
-        .diff((0, dayjs_1.default)(startTime), "minute");
+        .diff(dayjs(startTime), "minute");
     const result = [];
     if (diffDays > 0)
         result.push(`${diffDays.toLocaleString()} ${diffDays > 1 ? "days" : "day"}`);
@@ -68,17 +62,17 @@ function getStatusFromHttpResult(site, httpCode, data, responseTime) {
         status = "degraded";
     if (status === "up" && typeof data === "string") {
         if (site.__dangerous__body_down &&
-            data.includes((0, environment_1.replaceEnvironmentVariables)(site.__dangerous__body_down)))
+            data.includes(replaceEnvironmentVariables(site.__dangerous__body_down)))
             status = "down";
         if (site.__dangerous__body_degraded &&
-            data.includes((0, environment_1.replaceEnvironmentVariables)(site.__dangerous__body_degraded)))
+            data.includes(replaceEnvironmentVariables(site.__dangerous__body_degraded)))
             status = "degraded";
     }
     if (site.__dangerous__body_degraded_if_text_missing &&
-        !data.includes((0, environment_1.replaceEnvironmentVariables)(site.__dangerous__body_degraded_if_text_missing)))
+        !data.includes(replaceEnvironmentVariables(site.__dangerous__body_degraded_if_text_missing)))
         status = "degraded";
     if (site.__dangerous__body_down_if_text_missing &&
-        !data.includes((0, environment_1.replaceEnvironmentVariables)(site.__dangerous__body_down_if_text_missing)))
+        !data.includes(replaceEnvironmentVariables(site.__dangerous__body_down_if_text_missing)))
         status = "down";
     return status;
 }
@@ -113,15 +107,15 @@ const throwGlobalpingApiError = (action, failure) => {
     const statusText = status ? ` with HTTP ${status}` : "";
     throw new Error(`Globalping ${action} failed${statusText}: ${stringifyGlobalpingErrorData(failure.data)}`);
 };
-const update = async (shouldCommit = false) => {
-    if (!(await (0, init_check_1.shouldContinue)()))
+export const update = async (shouldCommit = false) => {
+    if (!(await shouldContinue()))
         return;
-    await (0, fs_extra_1.mkdirp)("history");
-    const [owner, repo] = (0, secrets_1.getOwnerRepo)();
-    const config = await (0, config_1.getConfig)();
-    const octokit = await (0, github_1.getOctokit)();
+    await mkdirp("history");
+    const [owner, repo] = getOwnerRepo();
+    const config = await getConfig();
+    const octokit = await getOctokit();
     let hasDelta = false;
-    const _ongoingMaintenanceEvents = await (0, github_1.retryTransientGitHubRequest)(() => octokit.issues.listForRepo({
+    const _ongoingMaintenanceEvents = await retryTransientGitHubRequest(() => octokit.issues.listForRepo({
         owner,
         repo,
         state: "open",
@@ -157,7 +151,7 @@ const update = async (shouldCommit = false) => {
                     .split(",")
                     .map((i) => i.trim())
                     .filter((i) => i.length);
-            if ((0, dayjs_1.default)(metadata.end).isBefore((0, dayjs_1.default)())) {
+            if (dayjs(metadata.end).isBefore(dayjs())) {
                 await octokit.issues.unlock({
                     owner,
                     repo,
@@ -176,7 +170,7 @@ const update = async (shouldCommit = false) => {
                 });
                 console.log("Closed maintenance completed event", incident.number);
             }
-            else if ((0, dayjs_1.default)(metadata.start).isBefore((0, dayjs_1.default)())) {
+            else if (dayjs(metadata.start).isBefore(dayjs())) {
                 ongoingMaintenanceEvents.push({
                     issueNumber: incident.number,
                     metadata: { start: metadata.start, end: metadata.end, expectedDegraded, expectedDown },
@@ -190,12 +184,12 @@ const update = async (shouldCommit = false) => {
             console.log(`Waiting for ${config.delay}ms`);
             await delay(config.delay);
         }
-        const slug = (0, slug_1.getSiteSlug)(site);
+        const slug = getSiteSlug(site);
         const notificationSiteUrl = getNotificationSiteUrl(site);
         let currentStatus = "unknown";
         let startTime = new Date();
         try {
-            const siteHistory = (0, js_yaml_1.load)((await (0, fs_extra_1.readFile)((0, path_1.join)(".", "history", `${slug}.yml`), "utf8"))
+            const siteHistory = load((await readFile(join(".", "history", `${slug}.yml`), "utf8"))
                 .split("\n")
                 .map((line) => (line.startsWith("- ") ? line.replace("- ", "") : line))
                 .join("\n"));
@@ -210,11 +204,11 @@ const update = async (shouldCommit = false) => {
         const performTestOnce = async () => {
             // globalping
             if (site.type === "globalping") {
-                const client = new globalping_1.Globalping({
-                    auth: (0, secrets_1.getSecret)("GLOBALPING_TOKEN"),
+                const client = new Globalping({
+                    auth: getSecret("GLOBALPING_TOKEN"),
                     userAgent: "github.com/upptime/uptime-monitor",
                 });
-                let u = (0, environment_1.replaceEnvironmentVariables)(site.url);
+                let u = replaceEnvironmentVariables(site.url);
                 let url;
                 try {
                     if (!u.startsWith("http://") && !u.startsWith("https://")) {
@@ -235,11 +229,11 @@ const update = async (shouldCommit = false) => {
                         inProgressUpdates: false,
                         limit: 1,
                         locations: [{ magic: site.location || "world" }],
-                        ...((0, net_1.isIP)(url.hostname)
+                        ...(isIP(url.hostname)
                             ? {}
                             : {
                                 measurementOptions: {
-                                    ipVersion: site.ipv6 ? globalping_1.IpVersion[6] : globalping_1.IpVersion[4],
+                                    ipVersion: site.ipv6 ? IpVersion[6] : IpVersion[4],
                                 },
                             }),
                     });
@@ -277,7 +271,7 @@ const update = async (shouldCommit = false) => {
                     }
                 }
                 else {
-                    const protocol = url.protocol === "http:" ? globalping_1.HttpProtocol.HTTP : globalping_1.HttpProtocol.HTTPS;
+                    const protocol = url.protocol === "http:" ? HttpProtocol.HTTP : HttpProtocol.HTTPS;
                     const res = await client.createMeasurement({
                         type: "http",
                         target: url.hostname,
@@ -289,16 +283,16 @@ const update = async (shouldCommit = false) => {
                                 host: url.hostname,
                                 path: url.pathname,
                                 query: url.search ? url.search.slice(1) : undefined,
-                                method: site.method || globalping_1.HttpRequestMethod.GET,
+                                method: site.method || HttpRequestMethod.GET,
                                 headers: site.headers?.reduce((m, h) => {
                                     const splitIndex = h.indexOf(":");
-                                    m[h.substring(0, splitIndex)] = (0, environment_1.replaceEnvironmentVariables)(h.substring(splitIndex + 1).trimStart());
+                                    m[h.substring(0, splitIndex)] = replaceEnvironmentVariables(h.substring(splitIndex + 1).trimStart());
                                     return m;
                                 }, {}),
                             },
                             port: site.port || parseInt(url.port) || undefined,
-                            protocol: site.check === "ssl" ? globalping_1.HttpProtocol.HTTPS : protocol,
-                            ipVersion: site.ipv6 ? globalping_1.IpVersion[6] : globalping_1.IpVersion[4],
+                            protocol: site.check === "ssl" ? HttpProtocol.HTTPS : protocol,
+                            ipVersion: site.ipv6 ? IpVersion[6] : IpVersion[4],
                         },
                     });
                     if (res.ok) {
@@ -348,24 +342,24 @@ const update = async (shouldCommit = false) => {
                     try {
                         let status = "up";
                         // https://github.com/upptime/upptime/discussions/888
-                        const url = (0, environment_1.replaceEnvironmentVariables)(site.url);
+                        const url = replaceEnvironmentVariables(site.url);
                         let address = url;
-                        if ((0, net_1.isIP)(url)) {
-                            if (site.ipv6 && !(0, net_1.isIPv6)(url))
+                        if (isIP(url)) {
+                            if (site.ipv6 && !isIPv6(url))
                                 throw new Error("Site URL must be IPv6 for ipv6 check");
                         }
                         else {
                             if (site.ipv6)
-                                address = (await dns_1.default.promises.resolve6(url))[0];
+                                address = (await dns.promises.resolve6(url))[0];
                             else
-                                address = (await dns_1.default.promises.resolve4(url))[0];
-                            if (!(0, net_1.isIP)(address))
+                                address = (await dns.promises.resolve4(url))[0];
+                            if (!isIP(address))
                                 throw new Error("Site IP address could not be resolved");
                         }
-                        const tcpResult = await (0, ping_1.ping)({
+                        const tcpResult = await ping({
                             address,
                             attempts: 5,
-                            port: Number((0, environment_1.replaceEnvironmentVariables)(site.port ? String(site.port) : "")),
+                            port: Number(replaceEnvironmentVariables(site.port ? String(site.port) : "")),
                         });
                         //
                         // NOTE: this was implemented in order to provide more insight into potential false positives
@@ -422,10 +416,10 @@ const update = async (shouldCommit = false) => {
                 //   promise to await:
                 const connect = () => {
                     return new Promise(function (resolve, reject) {
-                        const ws = new ws_1.default((0, environment_1.replaceEnvironmentVariables)(site.url));
+                        const ws = new WebSocket(replaceEnvironmentVariables(site.url));
                         ws.on("open", function open() {
                             if (site.body) {
-                                ws.send((0, environment_1.replaceEnvironmentVariables)(site.body));
+                                ws.send(replaceEnvironmentVariables(site.body));
                             }
                             else {
                                 ws.send("");
@@ -470,9 +464,9 @@ const update = async (shouldCommit = false) => {
             else if (site.check === "ssl") {
                 console.log("Using ssl check instead of curl");
                 try {
-                    const url = (0, environment_1.replaceEnvironmentVariables)(site.url);
-                    const port = Number((0, environment_1.replaceEnvironmentVariables)(site.port ? String(site.port) : "443"));
-                    const dateInfo = await (0, ssl_date_checker_1.checker)(url, port);
+                    const url = replaceEnvironmentVariables(site.url);
+                    const port = Number(replaceEnvironmentVariables(site.port ? String(site.port) : "443"));
+                    const dateInfo = await checker(url, port);
                     return {
                         result: { httpCode: 200 },
                         responseTime: "0",
@@ -485,7 +479,7 @@ const update = async (shouldCommit = false) => {
                 }
             }
             else {
-                const result = await (0, request_1.curl)(site);
+                const result = await curl(site);
                 console.log("Result from test", result.httpCode, result.totalTime);
                 const responseTime = result.totalTime * 1000;
                 const status = getStatusFromHttpResult(site, result.httpCode, result.data, responseTime);
@@ -533,7 +527,7 @@ const update = async (shouldCommit = false) => {
         }
         try {
             if (shouldCommit || currentStatus !== status) {
-                await (0, fs_extra_1.writeFile)((0, path_1.join)(".", "history", `${slug}.yml`), `url: ${site.url}
+                await writeFile(join(".", "history", `${slug}.yml`), `url: ${site.url}
 status: ${status}
 code: ${result.httpCode}
 responseTime: ${responseTime}
@@ -546,7 +540,7 @@ generator: Upptime <https://github.com/upptime/upptime>
                     : status === "degraded"
                         ? config.commitPrefixStatusDegraded || "🟨"
                         : config.commitPrefixStatusDown || "🟥";
-                (0, git_1.commit)(((config.commitMessages || {}).statusChange ||
+                commit(((config.commitMessages || {}).statusChange ||
                     "$PREFIX $SITE_NAME is $STATUS ($RESPONSE_CODE in $RESPONSE_TIME ms) [skip ci] [upptime]")
                     .replace(/\$PREFIX|\$EMOJI/g, statusPrefix)
                     .replace("$SITE_NAME", site.name)
@@ -555,7 +549,7 @@ generator: Upptime <https://github.com/upptime/upptime>
                     .replace("$STATUS", status)
                     .replace("$RESPONSE_CODE", result.httpCode.toString())
                     .replace("$RESPONSE_TIME", responseTime), (config.commitMessages || {}).commitAuthorName, (config.commitMessages || {}).commitAuthorEmail, (config.commitMessages || {}).signoff);
-                const lastCommitSha = (0, git_1.lastCommit)();
+                const lastCommitSha = lastCommit();
                 if (currentStatus !== status) {
                     console.log("Status is different", currentStatus, "to", status);
                     hasDelta = true;
@@ -606,14 +600,14 @@ generator: Upptime <https://github.com/upptime/upptime>
                             });
                             console.log("Opened and locked a new issue");
                             try {
-                                const downmsg = (await (0, secrets_1.getSecret)("NOTIFICATIONS_DOWN_MESSAGE"))
-                                    ? ((0, secrets_1.getSecret)("NOTIFICATIONS_DOWN_MESSAGE") || "")
+                                const downmsg = (await getSecret("NOTIFICATIONS_DOWN_MESSAGE"))
+                                    ? (getSecret("NOTIFICATIONS_DOWN_MESSAGE") || "")
                                         .replace("$SITE_NAME", site.name)
                                         .replace("$SITE_URL", `(${notificationSiteUrl})`)
                                         .replace("$ISSUE_URL", `${newIssue.data.html_url}`)
                                         .replace("$RESPONSE_CODE", result.httpCode.toString())
                                     : `$EMOJI ${site.name} (${notificationSiteUrl}) is $STATUS : ${newIssue.data.html_url}`;
-                                await (0, notifme_1.sendNotification)(status === "down"
+                                await sendNotification(status === "down"
                                     ? `${downmsg
                                         .replace("$STATUS", "**down**")
                                         .replace("$EMOJI", `${config.commitPrefixStatusDown || "🟥"}`)}`
@@ -658,12 +652,12 @@ generator: Upptime <https://github.com/upptime/upptime>
                         });
                         console.log("Closed issue");
                         try {
-                            const upmsg = (await (0, secrets_1.getSecret)("NOTIFICATIONS_UP_MESSAGE"))
-                                ? ((0, secrets_1.getSecret)("NOTIFICATIONS_UP_MESSAGE") || "")
+                            const upmsg = (await getSecret("NOTIFICATIONS_UP_MESSAGE"))
+                                ? (getSecret("NOTIFICATIONS_UP_MESSAGE") || "")
                                     .replace("$SITE_NAME", site.name)
                                     .replace("$SITE_URL", `(${notificationSiteUrl})`)
                                 : `$EMOJI ${site.name} (${notificationSiteUrl}) $STATUS`;
-                            await (0, notifme_1.sendNotification)(upmsg
+                            await sendNotification(upmsg
                                 .replace("$EMOJI", `${config.commitPrefixStatusUp || "🟩"}`)
                                 .replace("$STATUS", `${issues.data[0].title.includes("degraded")
                                 ? "performance has improved"
@@ -689,10 +683,9 @@ generator: Upptime <https://github.com/upptime/upptime>
             console.log("ERROR", error);
         }
     }
-    (0, git_1.push)();
+    push();
     if (hasDelta)
-        await (0, summary_1.generateSummary)();
+        await generateSummary();
 };
-exports.update = update;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 //# sourceMappingURL=update.js.map
