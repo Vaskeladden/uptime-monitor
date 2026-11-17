@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.replaceEnvironmentVariables = void 0;
-const constants_1 = require("./constants");
-const replaceEnvironmentVariables = (str) => {
+import { RANDOM_MAX_DEFAULT, RANDOM_MIN_DEFAULT, DYNAMIC_RANDOM_NUMBER, DYNAMIC_ALPHANUMERIC_STRING, DYNAMIC_STRING_LENGTH_DEFAULT } from "./constants";
+export const replaceEnvironmentVariables = (str) => {
     Object.keys(process.env).forEach((key) => {
         str = str.replace(`$${key}`, process.env[key] || `$${key}`);
     });
@@ -16,19 +13,18 @@ const replaceEnvironmentVariables = (str) => {
     str = substituteDynamicAlphanumericString(str);
     return str;
 };
-exports.replaceEnvironmentVariables = replaceEnvironmentVariables;
 const substituteRandomNumbers = (str) => {
-    if (str.includes(constants_1.DYNAMIC_RANDOM_NUMBER)) {
-        const min = parseInt(process.env.RANDOM_MIN || constants_1.RANDOM_MIN_DEFAULT);
-        const max = parseInt(process.env.RANDOM_MAX || constants_1.RANDOM_MAX_DEFAULT);
-        str = str.replaceAll(constants_1.DYNAMIC_RANDOM_NUMBER, () => getRandomNumber(min, max).toString());
+    if (str.includes(DYNAMIC_RANDOM_NUMBER)) {
+        const min = parseInt(process.env.RANDOM_MIN || RANDOM_MIN_DEFAULT);
+        const max = parseInt(process.env.RANDOM_MAX || RANDOM_MAX_DEFAULT);
+        str = str.replaceAll(DYNAMIC_RANDOM_NUMBER, () => getRandomNumber(min, max).toString());
     }
     return str;
 };
 const substituteDynamicAlphanumericString = (str) => {
-    if (str.includes(constants_1.DYNAMIC_ALPHANUMERIC_STRING)) {
-        const length = parseInt(process.env.DYNAMIC_STRING_LENGTH || constants_1.DYNAMIC_STRING_LENGTH_DEFAULT);
-        str = str.replaceAll(constants_1.DYNAMIC_ALPHANUMERIC_STRING, () => getRandomAlphanumericString(length));
+    if (str.includes(DYNAMIC_ALPHANUMERIC_STRING)) {
+        const length = parseInt(process.env.DYNAMIC_STRING_LENGTH || DYNAMIC_STRING_LENGTH_DEFAULT);
+        str = str.replaceAll(DYNAMIC_ALPHANUMERIC_STRING, () => getRandomAlphanumericString(length));
     }
     return str;
 };

@@ -1,6 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const github_1 = require("./github");
+import { retryTransientGitHubRequest } from "./github";
 describe("retryTransientGitHubRequest", () => {
     const wait = jest.fn().mockResolvedValue(undefined);
     const log = jest.fn();
@@ -13,7 +11,7 @@ describe("retryTransientGitHubRequest", () => {
             .mockRejectedValueOnce({ status: 503 })
             .mockRejectedValueOnce({ response: { status: 502 } })
             .mockResolvedValue({ data: ["ok"] });
-        await expect((0, github_1.retryTransientGitHubRequest)(request, { maxAttempts: 3, initialDelayMs: 100, wait, log })).resolves.toEqual({ data: ["ok"] });
+        await expect(retryTransientGitHubRequest(request, { maxAttempts: 3, initialDelayMs: 100, wait, log })).resolves.toEqual({ data: ["ok"] });
         expect(request).toHaveBeenCalledTimes(3);
         expect(wait).toHaveBeenNthCalledWith(1, 100);
         expect(wait).toHaveBeenNthCalledWith(2, 200);
@@ -22,7 +20,7 @@ describe("retryTransientGitHubRequest", () => {
     it("does not retry non-transient GitHub API failures", async () => {
         const error = { status: 403 };
         const request = jest.fn().mockRejectedValue(error);
-        await expect((0, github_1.retryTransientGitHubRequest)(request, { maxAttempts: 3, initialDelayMs: 100, wait, log })).rejects.toBe(error);
+        await expect(retryTransientGitHubRequest(request, { maxAttempts: 3, initialDelayMs: 100, wait, log })).rejects.toBe(error);
         expect(request).toHaveBeenCalledTimes(1);
         expect(wait).not.toHaveBeenCalled();
         expect(log).not.toHaveBeenCalled();
@@ -30,7 +28,7 @@ describe("retryTransientGitHubRequest", () => {
     it("rethrows the last transient failure after exhausting attempts", async () => {
         const error = { status: 503 };
         const request = jest.fn().mockRejectedValue(error);
-        await expect((0, github_1.retryTransientGitHubRequest)(request, { maxAttempts: 3, initialDelayMs: 100, wait, log })).rejects.toBe(error);
+        await expect(retryTransientGitHubRequest(request, { maxAttempts: 3, initialDelayMs: 100, wait, log })).rejects.toBe(error);
         expect(request).toHaveBeenCalledTimes(3);
         expect(wait).toHaveBeenCalledTimes(2);
     });

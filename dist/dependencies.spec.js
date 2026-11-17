@@ -1,8 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const fs_1 = require("fs");
-const os_1 = require("os");
-const path_1 = require("path");
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 jest.mock("./helpers/config", () => ({
     getConfig: jest.fn(),
 }));
@@ -30,12 +28,12 @@ describe("updateDependencies", () => {
     let tempDir;
     let workflowPath;
     const writeWorkflow = (contents) => {
-        (0, fs_1.mkdirSync)((0, path_1.join)(tempDir, ".github", "workflows"), { recursive: true });
-        workflowPath = (0, path_1.join)(tempDir, ".github", "workflows", "updates.yml");
-        (0, fs_1.writeFileSync)(workflowPath, contents);
+        mkdirSync(join(tempDir, ".github", "workflows"), { recursive: true });
+        workflowPath = join(tempDir, ".github", "workflows", "updates.yml");
+        writeFileSync(workflowPath, contents);
     };
     beforeEach(() => {
-        tempDir = (0, fs_1.mkdtempSync)((0, path_1.join)((0, os_1.tmpdir)(), "upptime-dependencies-"));
+        tempDir = mkdtempSync(join(tmpdir(), "upptime-dependencies-"));
         process.chdir(tempDir);
         writeWorkflow(`name: Updates CI
 jobs:
@@ -46,7 +44,7 @@ jobs:
     });
     afterEach(() => {
         process.chdir(originalCwd);
-        (0, fs_1.rmSync)(tempDir, { recursive: true, force: true });
+        rmSync(tempDir, { recursive: true, force: true });
         jest.clearAllMocks();
     });
     it("updates dependencies from the latest GitHub release", async () => {
@@ -63,7 +61,7 @@ jobs:
         await updateDependencies();
         expect(listReleases).toHaveBeenCalledWith({ owner: "upptime", repo: "uptime-monitor", per_page: 1 });
         expect(listTags).not.toHaveBeenCalled();
-        expect((0, fs_1.readFileSync)(workflowPath, "utf8")).toContain("uses: upptime/uptime-monitor@v1.42.4");
+        expect(readFileSync(workflowPath, "utf8")).toContain("uses: upptime/uptime-monitor@v1.42.4");
         expect(commit).toHaveBeenCalledWith(expect.stringContaining("Signed-off-by: Anand Chowdhary <github@anandchowdhary.com>"), undefined, undefined, undefined);
     });
     it("updates every occurrence of a dependency in a workflow", async () => {
@@ -87,7 +85,7 @@ jobs:
             repos: { createOrUpdateFileContents, getContent, listReleases, listTags },
         });
         await updateDependencies();
-        const updatedWorkflow = (0, fs_1.readFileSync)(workflowPath, "utf8");
+        const updatedWorkflow = readFileSync(workflowPath, "utf8");
         expect(updatedWorkflow.match(/upptime\/uptime-monitor@v1\.42\.4/g)).toHaveLength(2);
         expect(updatedWorkflow).not.toContain("upptime/uptime-monitor@v1.41.2");
     });
@@ -125,7 +123,7 @@ jobs:
         await updateDependencies();
         expect(listReleases).toHaveBeenCalledWith({ owner: "upptime", repo: "uptime-monitor", per_page: 1 });
         expect(listTags).toHaveBeenCalledWith({ owner: "upptime", repo: "uptime-monitor", per_page: 1 });
-        expect((0, fs_1.readFileSync)(workflowPath, "utf8")).toContain("uses: upptime/uptime-monitor@v1.42.4");
+        expect(readFileSync(workflowPath, "utf8")).toContain("uses: upptime/uptime-monitor@v1.42.4");
     });
     it("keeps the current dependency version when release lookup fails and no tags exist", async () => {
         const { getConfig, getOctokit, getOwnerRepo, updateDependencies } = loadDependencies();
@@ -135,7 +133,7 @@ jobs:
         getConfig.mockResolvedValue({ commitMessages: {} });
         getOctokit.mockResolvedValue({ repos: { listReleases, listTags } });
         await expect(updateDependencies()).resolves.toBeUndefined();
-        expect((0, fs_1.readFileSync)(workflowPath, "utf8")).toContain("uses: upptime/uptime-monitor@v1.41.2");
+        expect(readFileSync(workflowPath, "utf8")).toContain("uses: upptime/uptime-monitor@v1.41.2");
     });
     it("keeps the current dependency version when release and tag lookups both fail", async () => {
         const { getConfig, getOctokit, getOwnerRepo, updateDependencies } = loadDependencies();
@@ -145,7 +143,7 @@ jobs:
         getConfig.mockResolvedValue({ commitMessages: {} });
         getOctokit.mockResolvedValue({ repos: { listReleases, listTags } });
         await expect(updateDependencies()).resolves.toBeUndefined();
-        expect((0, fs_1.readFileSync)(workflowPath, "utf8")).toContain("uses: upptime/uptime-monitor@v1.41.2");
+        expect(readFileSync(workflowPath, "utf8")).toContain("uses: upptime/uptime-monitor@v1.41.2");
     });
     it("keeps unversioned dependency references unversioned when lookups fail", async () => {
         const { getConfig, getOctokit, getOwnerRepo, updateDependencies } = loadDependencies();
@@ -161,8 +159,8 @@ jobs:
         getConfig.mockResolvedValue({ commitMessages: {} });
         getOctokit.mockResolvedValue({ repos: { listReleases, listTags } });
         await expect(updateDependencies()).resolves.toBeUndefined();
-        expect((0, fs_1.readFileSync)(workflowPath, "utf8")).toContain("uses: upptime/uptime-monitor\n");
-        expect((0, fs_1.readFileSync)(workflowPath, "utf8")).not.toContain("upptime/uptime-monitor@undefined");
+        expect(readFileSync(workflowPath, "utf8")).toContain("uses: upptime/uptime-monitor\n");
+        expect(readFileSync(workflowPath, "utf8")).not.toContain("upptime/uptime-monitor@undefined");
     });
 });
 //# sourceMappingURL=dependencies.spec.js.map

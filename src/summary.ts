@@ -1,6 +1,7 @@
 import { mkdirp, readdir, readFile, writeFile } from "fs-extra";
 import { join } from "path";
-import { format } from "prettier";
+import { format } from "prettier/standalone";
+import * as markdownPlugin from "prettier/plugins/markdown";
 import { getResponseTimeForSite } from "./helpers/calculate-response-time";
 import { getUptimePercentForSite } from "./helpers/calculate-uptime";
 import { getConfig } from "./helpers/config";
@@ -427,7 +428,7 @@ ${config.summaryEndHtmlComment || "<!--end: status pages-->"}${endText}`;
 
   await writeFile(
     join(".", "README.md"),
-    format(readmeContent, { parser: "markdown" })
+    await format(readmeContent, { parser: "markdown", plugins: [markdownPlugin] })
   );
   await writeFile(
     join(".", ".gitattributes"),

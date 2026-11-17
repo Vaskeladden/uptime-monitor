@@ -1,8 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const fs_1 = require("fs");
-const os_1 = require("os");
-const path_1 = require("path");
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 const mockCreateMeasurement = jest.fn();
 const mockAwaitMeasurement = jest.fn();
 jest.mock("globalping", () => ({
@@ -57,7 +55,7 @@ describe("update globalping handling", () => {
     let issueApi;
     beforeEach(() => {
         jest.clearAllMocks();
-        testCwd = (0, fs_1.mkdtempSync)((0, path_1.join)((0, os_1.tmpdir)(), "upptime-update-test-"));
+        testCwd = mkdtempSync(join(tmpdir(), "upptime-update-test-"));
         process.chdir(testCwd);
         shouldContinue.mockResolvedValue(true);
         getOwnerRepo.mockReturnValue(["owner", "repo"]);
@@ -88,7 +86,7 @@ describe("update globalping handling", () => {
     });
     afterEach(() => {
         process.chdir(originalCwd);
-        (0, fs_1.rmSync)(testCwd, { recursive: true, force: true });
+        rmSync(testCwd, { recursive: true, force: true });
     });
     it("retries transient GitHub API failures while loading maintenance events", async () => {
         getConfig.mockResolvedValue({
@@ -169,7 +167,7 @@ describe("update globalping handling", () => {
         await update(true);
         expect(mockCreateMeasurement).toHaveBeenCalledTimes(2);
         expect(mockAwaitMeasurement).toHaveBeenCalledTimes(2);
-        expect((0, fs_1.readFileSync)((0, path_1.join)(testCwd, "history", "blocked-by-globalping.yml"), "utf8")).toContain("status: up");
+        expect(readFileSync(join(testCwd, "history", "blocked-by-globalping.yml"), "utf8")).toContain("status: up");
     });
     it("retries a failed Globalping ping probe result", async () => {
         getConfig.mockResolvedValue({
@@ -220,7 +218,7 @@ describe("update globalping handling", () => {
         await update(true);
         expect(mockCreateMeasurement).toHaveBeenCalledTimes(2);
         expect(mockAwaitMeasurement).toHaveBeenCalledTimes(2);
-        expect((0, fs_1.readFileSync)((0, path_1.join)(testCwd, "history", "ping-target.yml"), "utf8")).toContain("status: up");
+        expect(readFileSync(join(testCwd, "history", "ping-target.yml"), "utf8")).toContain("status: up");
     });
     it("omits ipVersion when a Globalping ping target is an IP address", async () => {
         getConfig.mockResolvedValue({
@@ -293,9 +291,9 @@ describe("update globalping handling", () => {
             },
         });
         await update(true);
-        const historyPath = (0, path_1.join)(testCwd, "history", "鸭鸭梨.yml");
-        expect((0, fs_1.existsSync)(historyPath)).toBe(true);
-        expect((0, fs_1.readFileSync)(historyPath, "utf8")).toContain("url: https://example.com");
+        const historyPath = join(testCwd, "history", "鸭鸭梨.yml");
+        expect(existsSync(historyPath)).toBe(true);
+        expect(readFileSync(historyPath, "utf8")).toContain("url: https://example.com");
         expect(commit).toHaveBeenCalledWith(expect.stringContaining("鸭鸭梨 is up (200 in 123 ms)"), undefined, undefined, undefined);
     });
     it("waits for summary generation and surfaces its failures", async () => {
@@ -362,8 +360,8 @@ describe("update globalping handling", () => {
     it("redacts secret-backed site URLs in notifications", async () => {
         const oldPrivateUrl = process.env.PRIVATE_STATUS_URL;
         process.env.PRIVATE_STATUS_URL = "https://private.example/path?session=abc123";
-        (0, fs_1.mkdirSync)((0, path_1.join)(testCwd, "history"));
-        (0, fs_1.writeFileSync)((0, path_1.join)(testCwd, "history", "secret-url.yml"), [
+        mkdirSync(join(testCwd, "history"));
+        writeFileSync(join(testCwd, "history", "secret-url.yml"), [
             "url: $PRIVATE_STATUS_URL",
             "status: down",
             "code: 500",
@@ -571,14 +569,14 @@ describe("update globalping handling", () => {
             },
         });
         await update(true);
-        const history = (0, fs_1.readFileSync)((0, path_1.join)(testCwd, "history", "slow-site.yml"), "utf8");
+        const history = readFileSync(join(testCwd, "history", "slow-site.yml"), "utf8");
         expect(history).toContain("status: degraded");
         expect(history).toContain("responseTime: 123");
         expect(issueApi.create).not.toHaveBeenCalled();
     }, 15000);
     it("only closes Upptime-created status incidents for a recovered site", async () => {
-        (0, fs_1.mkdirSync)((0, path_1.join)(testCwd, "history"));
-        (0, fs_1.writeFileSync)((0, path_1.join)(testCwd, "history", "blocked-by-globalping.yml"), [
+        mkdirSync(join(testCwd, "history"));
+        writeFileSync(join(testCwd, "history", "blocked-by-globalping.yml"), [
             "url: https://blocked.example",
             "status: down",
             "code: 0",

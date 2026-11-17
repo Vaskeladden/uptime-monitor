@@ -1,18 +1,16 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateSummary = exports.deleteRecentStatusIssues = exports.normalizeWorkflowBadges = void 0;
-const fs_extra_1 = require("fs-extra");
-const path_1 = require("path");
-const prettier_1 = require("prettier");
-const calculate_response_time_1 = require("./helpers/calculate-response-time");
-const calculate_uptime_1 = require("./helpers/calculate-uptime");
-const config_1 = require("./helpers/config");
-const git_1 = require("./helpers/git");
-const github_1 = require("./helpers/github");
-const init_check_1 = require("./helpers/init-check");
-const slug_1 = require("./helpers/slug");
-const url_1 = require("url");
-const secrets_1 = require("./helpers/secrets");
+import { mkdirp, readdir, readFile, writeFile } from "fs-extra";
+import { join } from "path";
+import { format } from "prettier/standalone";
+import * as markdownPlugin from "prettier/plugins/markdown";
+import { getResponseTimeForSite } from "./helpers/calculate-response-time";
+import { getUptimePercentForSite } from "./helpers/calculate-uptime";
+import { getConfig } from "./helpers/config";
+import { commit, push } from "./helpers/git";
+import { getOctokit } from "./helpers/github";
+import { shouldContinue } from "./helpers/init-check";
+import { getSiteSlug } from "./helpers/slug";
+import { parse } from "url";
+import { getOwnerRepo } from "./helpers/secrets";
 const workflowBadges = [
     { label: "Uptime CI", workflowName: "Uptime%20CI", file: "uptime.yml" },
     {
@@ -30,16 +28,15 @@ const workflowBadges = [
 ];
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const workflowBadgeMarkdown = (owner, repo, badge) => `[![${badge.label}](https://github.com/${owner}/${repo}/workflows/${badge.workflowName}/badge.svg)](https://github.com/${owner}/${repo}/actions/workflows/${badge.file})`;
-const normalizeWorkflowBadges = (readmeContent, owner, repo) => workflowBadges.reduce((content, badge) => {
+export const normalizeWorkflowBadges = (readmeContent, owner, repo) => workflowBadges.reduce((content, badge) => {
     const label = escapeRegExp(badge.label);
     const workflowName = escapeRegExp(badge.workflowName);
     const file = escapeRegExp(badge.file);
     const workflowBadgePattern = new RegExp(String.raw `\[!\[${label}\]\(https:\/\/github\.com\/[^/]+\/[^/]+\/(?:workflows\/${workflowName}|actions\/workflows\/${file})\/badge\.svg\)\]\(https:\/\/github\.com\/[^/]+\/[^/]+\/actions(?:\/workflows\/${file})?(?:\?query=workflow%3A%22[^)]*%22)?\)`, "g");
     return content.replace(workflowBadgePattern, workflowBadgeMarkdown(owner, repo, badge));
 }, readmeContent);
-exports.normalizeWorkflowBadges = normalizeWorkflowBadges;
 const recentIssueWindowMs = 15 * 60 * 1000;
-const deleteRecentStatusIssues = async (octokit, owner, repo, now = Date.now()) => {
+export const deleteRecentStatusIssues = async (octokit, owner, repo, now = Date.now()) => {
     const cutoff = now - recentIssueWindowMs;
     const issuesRecentlyClosed = await octokit.paginate(octokit.issues.listForRepo, {
         owner,
@@ -73,15 +70,14 @@ const deleteRecentStatusIssues = async (octokit, owner, repo, now = Date.now()) 
         }
     }
 };
-exports.deleteRecentStatusIssues = deleteRecentStatusIssues;
-const generateSummary = async () => {
-    if (!(await (0, init_check_1.shouldContinue)()))
+export const generateSummary = async () => {
+    if (!(await shouldContinue()))
         return;
-    await (0, fs_extra_1.mkdirp)("history");
-    const [owner, repo] = (0, secrets_1.getOwnerRepo)();
-    const config = await (0, config_1.getConfig)();
-    const octokit = await (0, github_1.getOctokit)();
-    let readmeContent = await (0, fs_extra_1.readFile)((0, path_1.join)(".", "README.md"), "utf8");
+    await mkdirp("history");
+    const [owner, repo] = getOwnerRepo();
+    const config = await getConfig();
+    const octokit = await getOctokit();
+    let readmeContent = await readFile(join(".", "README.md"), "utf8");
     const startText = readmeContent.split(config.summaryStartHtmlComment || "<!--start: status pages-->")[0];
     const endText = readmeContent.split(config.summaryEndHtmlComment || "<!--end: status pages-->")[1];
     // This object will track the summary data of all sites
@@ -92,14 +88,14 @@ const generateSummary = async () => {
     let numberOfDegraded = 0;
     // Loop through each site and add compute the current status
     for await (const site of config.sites) {
-        const slug = (0, slug_1.getSiteSlug)(site);
-        const uptimes = await (0, calculate_uptime_1.getUptimePercentForSite)(slug);
+        const slug = getSiteSlug(site);
+        const uptimes = await getUptimePercentForSite(slug);
         console.log("Uptimes", uptimes);
-        const responseTimes = await (0, calculate_response_time_1.getResponseTimeForSite)(slug);
+        const responseTimes = await getResponseTimeForSite(slug);
         console.log("Response times", responseTimes);
         let fallbackIcon = "";
         try {
-            fallbackIcon = `https://icons.duckduckgo.com/ip3/${(0, url_1.parse)(site.url).hostname}.ico`;
+            fallbackIcon = `https://icons.duckduckgo.com/ip3/${parse(site.url).hostname}.ico`;
         }
         catch (error) { }
         pageStatuses.push({
@@ -193,7 +189,7 @@ ${config.summaryEndHtmlComment || "<!--end: status pages-->"}${endText}`;
             }
         }
         // Change badges
-        readmeContent = (0, exports.normalizeWorkflowBadges)(readmeContent, config.owner, config.repo);
+        readmeContent = normalizeWorkflowBadges(readmeContent, config.owner, config.repo);
         // Add repo description, topics, etc.
         try {
             const repoInfo = await octokit.repos.get({ owner, repo });
@@ -252,29 +248,28 @@ ${config.summaryEndHtmlComment || "<!--end: status pages-->"}${endText}`;
         return line;
     })
         .join("\n");
-    await (0, fs_extra_1.writeFile)((0, path_1.join)(".", "README.md"), (0, prettier_1.format)(readmeContent, { parser: "markdown" }));
-    await (0, fs_extra_1.writeFile)((0, path_1.join)(".", ".gitattributes"), "# Markdown\n*.md linguist-detectable=true\n*.md linguist-documentation=false\n\n# JSON\n*.json linguist-detectable=true\n\n# YAML\n*.yml linguist-detectable=true\n");
-    (0, git_1.commit)((config.commitMessages || {}).readmeContent ||
+    await writeFile(join(".", "README.md"), await format(readmeContent, { parser: "markdown", plugins: [markdownPlugin] }));
+    await writeFile(join(".", ".gitattributes"), "# Markdown\n*.md linguist-detectable=true\n*.md linguist-documentation=false\n\n# JSON\n*.json linguist-detectable=true\n\n# YAML\n*.yml linguist-detectable=true\n");
+    commit((config.commitMessages || {}).readmeContent ||
         ":pencil: Update summary in README [skip ci] [upptime]", (config.commitMessages || {}).commitAuthorName, (config.commitMessages || {}).commitAuthorEmail, (config.commitMessages || {}).signoff);
     // If there are any old workflows left, fix them
-    const workflows = (await (0, fs_extra_1.readdir)((0, path_1.join)(".", ".github", "workflows"))).filter((i) => i.endsWith(".yml"));
+    const workflows = (await readdir(join(".", ".github", "workflows"))).filter((i) => i.endsWith(".yml"));
     for await (const workflow of workflows) {
-        const content = await (0, fs_extra_1.readFile)((0, path_1.join)(".", ".github", "workflows", workflow), "utf8");
+        const content = await readFile(join(".", ".github", "workflows", workflow), "utf8");
         const newContent = content.replace("actions/setup-node@v2.1.1", "actions/setup-node@v1.4.4");
         if (content !== newContent) {
             console.log("Updating workflow", workflow);
-            await (0, fs_extra_1.writeFile)((0, path_1.join)(".", ".github", "workflows", workflow), newContent);
+            await writeFile(join(".", ".github", "workflows", workflow), newContent);
         }
     }
-    await (0, fs_extra_1.writeFile)((0, path_1.join)(".", "history", "summary.json"), JSON.stringify(pageStatuses, null, 2));
-    (0, git_1.commit)((config.commitMessages || {}).summaryJson ||
+    await writeFile(join(".", "history", "summary.json"), JSON.stringify(pageStatuses, null, 2));
+    commit((config.commitMessages || {}).summaryJson ||
         ":card_file_box: Update status summary [skip ci] [upptime]", (config.commitMessages || {}).commitAuthorName, (config.commitMessages || {}).commitAuthorEmail, (config.commitMessages || {}).signoff);
-    (0, git_1.push)();
+    push();
     if (!config.skipDeleteIssues) {
         // Find all the opened issues that shouldn't have opened
         // Say, Upptime found a down monitor and it was back up within 5 min
-        await (0, exports.deleteRecentStatusIssues)(octokit, owner, repo);
+        await deleteRecentStatusIssues(octokit, owner, repo);
     }
 };
-exports.generateSummary = generateSummary;
 //# sourceMappingURL=summary.js.map

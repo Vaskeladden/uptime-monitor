@@ -1,11 +1,5 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.checker = checker;
 // Source: https://github.com/rheh/ssl-date-checker/blob/master/src/Checker.js
-const https_1 = __importDefault(require("https"));
+import https from "https";
 function checkHost(newHost) {
     if (!newHost) {
         throw new Error("Invalid host");
@@ -20,7 +14,7 @@ function checkPort(newPort) {
     }
     return true;
 }
-async function checker(host, port) {
+export async function checker(host, port) {
     if (host === null || port === null) {
         throw new Error("Invalid host or port");
     }
@@ -33,7 +27,7 @@ async function checker(host, port) {
             method: "GET",
             rejectUnauthorized: false,
         };
-        const req = https_1.default.request(options, function (res) {
+        const req = https.request(options, function (res) {
             res.on("data", (d) => {
                 // process.stdout.write(d);
             });

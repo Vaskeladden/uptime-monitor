@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.curl = void 0;
-const node_libcurl_1 = require("node-libcurl");
-const environment_1 = require("./environment");
+import { Curl, CurlFeature } from "node-libcurl";
+import { replaceEnvironmentVariables } from "./environment";
 /** Default maximum number of retries for transient curl errors (HTTP 0) */
 const DEFAULT_MAX_RETRIES = 3;
 /** Default connect timeout in seconds */
@@ -44,18 +41,18 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * Returns the HTTP status code, total time, and response body.
  */
 const curlOnce = (site) => new Promise((resolve) => {
-    const url = (0, environment_1.replaceEnvironmentVariables)(site.url);
+    const url = replaceEnvironmentVariables(site.url);
     const method = (site.method || "GET").toUpperCase();
     const maxRedirects = Number.isInteger(site.maxRedirects) ? Number(site.maxRedirects) : 3;
     const connectTimeout = site.connectTimeout || DEFAULT_CONNECT_TIMEOUT;
     const requestTimeout = site.requestTimeout || DEFAULT_REQUEST_TIMEOUT;
-    const curlHandle = new node_libcurl_1.Curl();
-    curlHandle.enable(node_libcurl_1.CurlFeature.Raw);
+    const curlHandle = new Curl();
+    curlHandle.enable(CurlFeature.Raw);
     curlHandle.setOpt("URL", url);
     if (site.headers)
-        curlHandle.setOpt(node_libcurl_1.Curl.option.HTTPHEADER, site.headers.map(environment_1.replaceEnvironmentVariables));
+        curlHandle.setOpt(Curl.option.HTTPHEADER, site.headers.map(replaceEnvironmentVariables));
     if (site.body)
-        curlHandle.setOpt("POSTFIELDS", (0, environment_1.replaceEnvironmentVariables)(site.body));
+        curlHandle.setOpt("POSTFIELDS", replaceEnvironmentVariables(site.body));
     if (site.__dangerous__insecure || site.__dangerous__disable_verify_peer)
         curlHandle.setOpt("SSL_VERIFYPEER", false);
     if (site.__dangerous__insecure || site.__dangerous__disable_verify_host)
@@ -126,7 +123,7 @@ const curlOnce = (site) => new Promise((resolve) => {
  * See: https://github.com/upptime/upptime/issues/495
  * See: https://github.com/upptime/upptime/issues/1083
  */
-const curl = async (site) => {
+export const curl = async (site) => {
     const maxRetries = site.maxRetries ?? DEFAULT_MAX_RETRIES;
     let lastResult = {
         httpCode: 0,
@@ -167,8 +164,7 @@ const curl = async (site) => {
         }
     }
     // All retries exhausted or non-transient error
-    console.log(`All ${maxRetries} curl attempts failed for ${(0, environment_1.replaceEnvironmentVariables)(site.url)}, returning HTTP 0`);
+    console.log(`All ${maxRetries} curl attempts failed for ${replaceEnvironmentVariables(site.url)}, returning HTTP 0`);
     return { httpCode: lastResult.httpCode, totalTime: lastResult.totalTime, data: lastResult.data };
 };
-exports.curl = curl;
 //# sourceMappingURL=request.js.map

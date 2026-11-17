@@ -1,6 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const summary_1 = require("./summary");
+import { deleteRecentStatusIssues, normalizeWorkflowBadges } from "./summary";
 describe("summary README workflow badges", () => {
     it("normalizes legacy Koj badge links to the current status repo", () => {
         const readme = `
@@ -10,7 +8,7 @@ describe("summary README workflow badges", () => {
 [![Static Site CI](https://github.com/koj-co/upptime/workflows/Static%20Site%20CI/badge.svg)](https://github.com/koj-co/upptime/actions?query=workflow%3A%22Static+Site+CI%22)
 [![Summary CI](https://github.com/koj-co/upptime/workflows/Summary%20CI/badge.svg)](https://github.com/koj-co/upptime/actions?query=workflow%3A%22Summary+CI%22)
 `;
-        const normalized = (0, summary_1.normalizeWorkflowBadges)(readme, "AnandChowdhary", "status");
+        const normalized = normalizeWorkflowBadges(readme, "AnandChowdhary", "status");
         expect(normalized).not.toContain("koj-co/upptime");
         expect(normalized).toContain("[![Uptime CI](https://github.com/AnandChowdhary/status/workflows/Uptime%20CI/badge.svg)](https://github.com/AnandChowdhary/status/actions/workflows/uptime.yml)");
         expect(normalized).toContain("[![Response Time CI](https://github.com/AnandChowdhary/status/workflows/Response%20Time%20CI/badge.svg)](https://github.com/AnandChowdhary/status/actions/workflows/response-time.yml)");
@@ -20,7 +18,7 @@ describe("summary README workflow badges", () => {
     });
     it("updates direct upstream workflow links when generating a user README", () => {
         const readme = "[![Uptime CI](https://github.com/upptime/upptime/workflows/Uptime%20CI/badge.svg)](https://github.com/upptime/upptime/actions/workflows/uptime.yml)";
-        expect((0, summary_1.normalizeWorkflowBadges)(readme, "owner", "status")).toBe("[![Uptime CI](https://github.com/owner/status/workflows/Uptime%20CI/badge.svg)](https://github.com/owner/status/actions/workflows/uptime.yml)");
+        expect(normalizeWorkflowBadges(readme, "owner", "status")).toBe("[![Uptime CI](https://github.com/owner/status/workflows/Uptime%20CI/badge.svg)](https://github.com/owner/status/actions/workflows/uptime.yml)");
     });
 });
 describe("recent status issue cleanup", () => {
@@ -43,7 +41,7 @@ describe("recent status issue cleanup", () => {
         const listForRepo = jest.fn();
         const paginate = jest.fn().mockResolvedValue([recentIssue, oldIssue]);
         const graphql = jest.fn().mockResolvedValue({});
-        await (0, summary_1.deleteRecentStatusIssues)({ issues: { listForRepo }, paginate, graphql }, "owner", "repo", now);
+        await deleteRecentStatusIssues({ issues: { listForRepo }, paginate, graphql }, "owner", "repo", now);
         expect(paginate).toHaveBeenCalledWith(listForRepo, {
             owner: "owner",
             repo: "repo",

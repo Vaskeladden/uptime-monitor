@@ -1,9 +1,4 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const js_yaml_1 = __importDefault(require("js-yaml"));
+import yaml from "js-yaml";
 jest.mock("./github", () => ({
     getOctokit: jest.fn(),
 }));
@@ -73,7 +68,7 @@ describe("workflow helpers", () => {
             uptimeCiWorkflow(),
         ]);
         for (const workflow of workflows) {
-            const parsed = js_yaml_1.default.load(workflow);
+            const parsed = yaml.load(workflow);
             const steps = parsed.jobs.release.steps;
             const appTokenStep = steps.find((step) => step.id === "app_token");
             const clearPrivateKeyStep = steps.find((step) => step.name === "Clear GitHub App private key");
@@ -128,7 +123,7 @@ describe("workflow helpers", () => {
             repos: { listReleases },
         });
         const workflow = await graphsCiWorkflow();
-        const parsed = js_yaml_1.default.load(workflow);
+        const parsed = yaml.load(workflow);
         const steps = parsed.jobs.release.steps;
         expect(steps).toEqual(expect.arrayContaining([
             expect.objectContaining({
@@ -157,7 +152,7 @@ describe("workflow helpers", () => {
             repos: { listReleases },
         });
         const workflow = await setupCiWorkflow();
-        const parsed = js_yaml_1.default.load(workflow);
+        const parsed = yaml.load(workflow);
         const steps = parsed.jobs.release.steps;
         const dispatchStep = steps.find((step) => step.id === "dispatch_graphs");
         const setupNodeStep = steps.find((step) => step.name === "Setup Node.js for direct graph generation");
@@ -242,8 +237,8 @@ describe("workflow helpers", () => {
             expect(workflow).toContain('"GLOBALPING_TOKEN":${{ toJson(secrets.GLOBALPING_TOKEN) }}');
             expect(workflow).toContain("# Configure the secret allowlist in .upptimerc.yml; do not edit this workflow directly.");
             expect(workflow).not.toContain("toJson(secrets) }}");
-            expect(() => js_yaml_1.default.load(workflow)).not.toThrow();
-            expect(js_yaml_1.default.load(workflow)).toHaveProperty("jobs");
+            expect(() => yaml.load(workflow)).not.toThrow();
+            expect(yaml.load(workflow)).toHaveProperty("jobs");
         }
     });
     it("generates an allowlisted secrets context when config.secrets is set", async () => {
@@ -268,8 +263,8 @@ describe("workflow helpers", () => {
         for (const workflow of workflows) {
             expect(workflow).toContain(expected);
             expect(workflow).not.toContain("SECRETS_CONTEXT: ${{ toJson(secrets) }}");
-            expect(() => js_yaml_1.default.load(workflow)).not.toThrow();
-            expect(js_yaml_1.default.load(workflow)).toHaveProperty("jobs");
+            expect(() => yaml.load(workflow)).not.toThrow();
+            expect(yaml.load(workflow)).toHaveProperty("jobs");
         }
     });
     it("generates an empty secrets object when config.secrets is empty", async () => {
