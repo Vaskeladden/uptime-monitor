@@ -110677,7 +110677,16 @@ RedirectableRequest.prototype._sanitizeOptions = function (options) {
   if (!options.headers) {
     options.headers = {};
   }
-  if (!isArray(options.sensitiveHeaders)) {
+  // Convert [header1, value1, header2, value2, …] to object
+  else if (Array.isArray(options.headers)) {
+    var headerList = options.headers;
+    options.headers = {};
+    for (var i = 0; i < headerList.length; i += 2) {
+      options.headers[headerList[i]] = headerList[i + 1];
+    }
+  }
+  // Ensure sensitive headers are always present
+  if (!Array.isArray(options.sensitiveHeaders)) {
     options.sensitiveHeaders = [];
   }
 
@@ -111055,10 +111064,6 @@ function isSubdomain(subdomain, domain) {
   return dot > 0 && subdomain[dot] === "." && subdomain.endsWith(domain);
 }
 
-function isArray(value) {
-  return value instanceof Array;
-}
-
 function isString(value) {
   return typeof value === "string" || value instanceof String;
 }
@@ -111076,7 +111081,8 @@ function isURL(value) {
 }
 
 function escapeRegex(regex) {
-  return regex.replace(/[\]\\/()*+?.$]/g, "\\$&");
+  // As per https://tc39.es/proposal-regexp-modifiers/#prod-SyntaxCharacter
+  return regex.replace(/[\^$\\.*+?()[\]{}|]/g, "\\$&");
 }
 
 // Exports
@@ -301458,6 +301464,14 @@ class Receiver extends Writable {
       }
     }
 
+    //
+    // The mask is a view into the buffer the stream delivered, which is commonly
+    // 64 KiB, and it is not needed once the payload above has been unmasked.
+    // Leaving it set would pin that whole buffer until the next frame arrives,
+    // which on an idle connection can be indefinitely.
+    //
+    this._mask = undefined;
+
     if (this._opcode > 0x07) {
       this.controlMessage(data, cb);
       return;
@@ -303306,6 +303320,7 @@ const EventEmitter = __nccwpck_require__(24434);
 const https = __nccwpck_require__(65692);
 const http = __nccwpck_require__(58611);
 const net = __nccwpck_require__(69278);
+const querystring = __nccwpck_require__(83480);
 const tls = __nccwpck_require__(64756);
 const { randomBytes, createHash } = __nccwpck_require__(76982);
 const { Duplex, Readable } = __nccwpck_require__(2203);
@@ -304024,10 +304039,9 @@ function initAsClient(websocket, address, protocols, options) {
     }
   }
 
-  if (parsedUrl.protocol === 'http:') {
-    parsedUrl.protocol = 'ws:';
-  } else if (parsedUrl.protocol === 'https:') {
-    parsedUrl.protocol = 'wss:';
+  if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+    parsedUrl = new URL(parsedUrl);
+    parsedUrl.protocol = parsedUrl.protocol === 'http:' ? 'ws:' : 'wss:';
   }
 
   websocket._url = parsedUrl.href;
@@ -304115,7 +304129,10 @@ function initAsClient(websocket, address, protocols, options) {
     }
   }
   if (parsedUrl.username || parsedUrl.password) {
-    opts.auth = `${parsedUrl.username}:${parsedUrl.password}`;
+    const username = querystring.unescape(parsedUrl.username);
+    const password = querystring.unescape(parsedUrl.password);
+
+    opts.auth = `${username}:${password}`;
   }
 
   if (isIpcUrl) {
@@ -304488,8 +304505,19 @@ function receiverOnConclude(code, reason) {
   const websocket = this[kWebSocket];
 
   websocket._closeFrameReceived = true;
-  websocket._closeMessage = reason;
   websocket._closeCode = code;
+
+  //
+  // The reason is a view into the buffer the socket delivered. Copy it so that
+  // the `WebSocket` does not keep that buffer alive. The copy is not pooled
+  // because a pooled one would keep the pool alive in the same way.
+  //
+  if (reason.length === 0) {
+    websocket._closeMessage = EMPTY_BUFFER;
+  } else {
+    websocket._closeMessage = Buffer.allocUnsafeSlow(reason.length);
+    websocket._closeMessage.set(reason);
+  }
 
   if (websocket._socket[kWebSocket] === undefined) return;
 
@@ -349905,7 +349933,7 @@ var follow_redirects = __nccwpck_require__(1573);
 // EXTERNAL MODULE: external "zlib"
 var external_zlib_ = __nccwpck_require__(43106);
 ;// CONCATENATED MODULE: ./node_modules/axios/lib/env/data.js
-const data_VERSION = "1.21.0";
+const data_VERSION = "1.21.1";
 ;// CONCATENATED MODULE: ./node_modules/axios/lib/helpers/parseProtocol.js
 
 
@@ -355115,18 +355143,34 @@ function throwIfCancellationRequested(config) {
 }
 
 /**
- * Milliseconds elapsed since `start`, floored at zero.
+ * Resolve the clock used to time adapter execution.
  *
- * Wall-clock, to match the rest of the codebase (speedometer, throttle,
- * AxiosTransformStream). A backwards clock adjustment mid-request would
- * otherwise produce a negative duration, so the result is clamped.
+ * Prefers the monotonic `performance.now()` so wall-clock adjustments do not
+ * skew the measurement, and so frameworks that forbid reading the current
+ * time during prerendering (e.g. Next.js Cache Components) accept it. Falls
+ * back to `Date.now()` in runtimes without the High Resolution Time API.
  *
- * @param {number} start Timestamp from `Date.now()`
+ * @returns {() => number} Millisecond clock
+ */
+function resolveClock() {
+  return typeof performance !== 'undefined' && utils.isFunction(performance.now)
+    ? () => performance.now()
+    : Date.now;
+}
+
+/**
+ * Whole milliseconds elapsed since `start`, floored at zero.
+ *
+ * Rounded so the value stays an integer as with `Date.now()`. The fallback
+ * wall clock can move backwards mid-request, so the result is clamped.
+ *
+ * @param {() => number} now Clock returned by `resolveClock()`
+ * @param {number} start Timestamp read from `now`
  *
  * @returns {number} Non-negative elapsed milliseconds
  */
-function elapsedSince(start) {
-  return Math.max(0, Date.now() - start);
+function elapsedSince(now, start) {
+  return Math.max(0, Math.round(now() - start));
 }
 
 /**
@@ -355155,13 +355199,14 @@ function dispatchRequest(_config) {
 
   const adapter = adapters.getAdapter(config.adapter || lib_defaults.adapter, config);
 
-  const start = Date.now();
+  const now = resolveClock();
+  const start = now();
 
   return adapter(config).then(
     function onAdapterResolution(response) {
       throwIfCancellationRequested(config);
 
-      response.duration = elapsedSince(start);
+      response.duration = elapsedSince(now, start);
 
       // Expose the current response on config so that transformResponse can
       // attach it to any AxiosError it throws (e.g. on JSON parse failure).
@@ -355183,7 +355228,7 @@ function dispatchRequest(_config) {
 
         // Transform response data
         if (reason && reason.response) {
-          reason.response.duration = elapsedSince(start);
+          reason.response.duration = elapsedSince(now, start);
           config.response = reason.response;
           try {
             reason.response.data = transformData.call(
@@ -360748,15 +360793,32 @@ const overridableReplacements = [
 
 
 
+// A combining mark belongs to the character before it, so each letter or digit is matched together with its marks. This keeps decomposed (NFD) text in one piece. Titlecase letters (`ǅ`, `ᾼ`) count as uppercase.
+const uppercase = String.raw`[\p{Titlecase_Letter}\p{Uppercase_Letter}]\p{Mark}*`;
+const lowercaseOrDigit = String.raw`[\p{Decimal_Number}\p{Lowercase_Letter}]\p{Mark}*`;
+
+// Each pattern captures the least leading context it needs, as a greedy quantifier there causes quadratic backtracking on long runs of the same character class.
+const separateAcronymFromDigits = new RegExp(String.raw`(?<acronym>(?:${uppercase}){2})(?<digits>\p{Decimal_Number}+)`, 'gv');
+const separateWordFromUppercase = new RegExp(`(?<word>${lowercaseOrDigit})(?<uppercase>${uppercase})`, 'gv');
+const separateAcronymFromWord = new RegExp(String.raw`(?<acronymHead>${uppercase})(?<rest>${uppercase}(?!s(?!\p{Mark}*\p{Lowercase_Letter}))(?:${lowercaseOrDigit})+)`, 'gv');
+
 const decamelize = string => string
 	// Separate capitalized words.
-	// Each pattern captures the least leading context it needs, as a greedy quantifier there causes quadratic backtracking on long runs of the same character class.
 	// `FOO360` → `FOO 360`
-	.replaceAll(/(?<acronym>[A-Z]{2})(?<digits>\d+)/gv, '$<acronym> $<digits>')
+	.replaceAll(separateAcronymFromDigits, '$<acronym> $<digits>')
 	// `foo360BAR` → `foo360 BAR`, `fooBar` → `foo Bar`
-	.replaceAll(/(?<word>[\da-z])(?<uppercase>[A-Z])/gv, '$<word> $<uppercase>')
+	.replaceAll(separateWordFromUppercase, '$<word> $<uppercase>')
 	// `APISection` → `API Section`. A lowercase `s` right after the acronym is a plural marker rather than the start of a new word, unless another lowercase letter follows it, so `APIs` is left alone while `APIUsage` is still separated.
-	.replaceAll(/(?<acronymHead>[A-Z])(?<rest>[A-Z](?!s(?![a-z]))[\da-z]+)/gv, '$<acronymHead> $<rest>');
+	.replaceAll(separateAcronymFromWord, '$<acronymHead> $<rest>');
+
+const slugify_normalize = string => {
+	// Match transliterate's guard, as long combining-mark sequences can make native normalization take quadratic time.
+	if (/\p{Mark}{101}/v.test(string)) {
+		throw new RangeError('Cannot normalize more than 100 consecutive combining marks');
+	}
+
+	return string.normalize();
+};
 
 const removeMootSeparators = (string, separator) => {
 	const escapedSeparator = escapeStringRegexp(separator);
@@ -360795,11 +360857,11 @@ const buildPatternSlug = options => {
 		negationSetPattern += escapeStringRegexp(character);
 	}
 
-	// Not `v`, as `escapeStringRegexp` does not escape characters that a `v`-mode character class requires escaped, like `/` and `&&`. The `u` flag is enough for `\p{…}`.
-	const flags = options.transliterate ? 'g' : 'gu';
+	// Not `v`, as `escapeStringRegexp` does not escape characters that a `v`-mode character class requires escaped, like `/` and `&&`. The `u` flag handles Unicode property escapes and keeps preserved characters like emoji intact.
 	// Discard combining marks with a removed character so emoji do not leave orphaned variation selectors.
 	const combiningMarksPattern = options.transliterate ? '' : String.raw`\p{M}*`;
-	return new RegExp(`(?:[^${negationSetPattern}]${combiningMarksPattern})+`, flags);
+	// eslint-disable-next-line require-unicode-regexp
+	return new RegExp(`(?:[^${negationSetPattern}]${combiningMarksPattern})+`, 'gu');
 };
 
 function slugify(string, options) {
@@ -360823,24 +360885,36 @@ function slugify(string, options) {
 	const shouldPrependUnderscore = options.preserveLeadingUnderscore && string.startsWith('_');
 	const shouldAppendDash = options.preserveTrailingDash && string.endsWith('-');
 
+	let {customReplacements} = options;
 	if (options.transliterate) {
-		const customReplacements = new Map([
+		customReplacements = Array.from(new Map([
 			...overridable_replacements,
-			...options.customReplacements,
-		]);
+			...customReplacements,
+		]), ([key, value]) => [slugify_normalize(key), value]).toSorted((a, b) => b[0].length - a[0].length);
 
-		string = transliterate(string, {customReplacements, locale: options.locale});
-	} else {
-		// Apply custom replacements even when transliteration is disabled
-		for (const [key, value] of options.customReplacements) {
-			// A replacement value keeps `replaceAll`'s replacement-pattern semantics here, so that this branch agrees with the transliterating one, where `@sindresorhus/transliterate` applies the same replacements the same way. Escaping `$` would make the two branches disagree.
-			// eslint-disable-next-line unicorn/no-unsafe-string-replacement
-			string = string.replaceAll(key, value);
-		}
+		// Preserve transliterate's canonical key matching and longest-key-first replacement order.
+		string = slugify_normalize(string);
 	}
 
+	// Apply custom replacements before decamelization, even when transliteration is disabled.
+	for (const [key, value] of customReplacements) {
+		// A replacement value keeps `replaceAll`'s replacement-pattern semantics, matching how `@sindresorhus/transliterate` applies the same replacements. Escaping `$` would change that behavior.
+		// eslint-disable-next-line unicorn/no-unsafe-string-replacement
+		string = string.replaceAll(key, value);
+	}
+
+	if (options.transliterate) {
+		// Custom replacement values can be in any normalization form.
+		string = slugify_normalize(string);
+	}
+
+	// Decamelization runs after custom replacements and before transliteration, as transliteration expands one character to several with a lower-case part (`Ü` → `Ue`), which would otherwise read as a camel-case boundary inside an upper-case word.
 	if (options.decamelize) {
 		string = decamelize(string);
+	}
+
+	if (options.transliterate) {
+		string = transliterate(string, {locale: options.locale});
 	}
 
 	const patternSlug = buildPatternSlug(options);
@@ -360864,11 +360938,11 @@ function slugify(string, options) {
 		string = removeMootSeparators(string, options.separator);
 	}
 
-	if (shouldPrependUnderscore) {
+	if (shouldPrependUnderscore && !string.startsWith('_')) {
 		string = `_${string}`;
 	}
 
-	if (shouldAppendDash) {
+	if (shouldAppendDash && !string.endsWith('-')) {
 		string += '-';
 	}
 
